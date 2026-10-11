@@ -68,7 +68,7 @@ with their MIT licence in `THIRD_PARTY_LICENSES`.
 ## Run
 
 ```sh
-bin/basalt serve --model /path/to/model.basalt --host 127.0.0.1 --port 8080 [--alias NAME]
+bin/basalt serve --model /path/to/model.basalt --host 127.0.0.1 --port 7232 [--alias NAME]
 ```
 
 The server listens on 127.0.0.1 by default; do not expose it beyond that without `--api-key`.
@@ -85,7 +85,7 @@ file carries no engine flags. Put every setting in one `basalt_config.json` and 
     "alias": "Qwen 3.8 FN",
     "gpu": "0,1",
     "host": "127.0.0.1",
-    "port": 8080
+    "port": 7232
   },
   "engine": {
     "expert-cache": "auto",
