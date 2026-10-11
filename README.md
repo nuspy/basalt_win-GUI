@@ -22,7 +22,7 @@ It is a fork of [Strata](https://github.com/Niko1221/Strata) (MIT), stripped dow
 ## What is in the repository
 
 - `src/`, `include/`: the C++/CUDA engine (one binary, `basalt`).
-- `serve/`: a Python server with an OpenAI- and Anthropic-compatible API, and a stats page.
+- `serve/`: a Python server with an OpenAI- and Anthropic-compatible API, and a web UI (chat, monitor, settings).
 - `tools/convert/`: the model-file converter (`convert.py`), its section builders and the drafter fetcher (`mtp_fetch.py`).
 - `tools/`: the .basalt reader and writer (`model_file.py`), the PPL/KLD quality gate (`ppl_gate.py`), the greedy-identity
   check and the tokenizer.
@@ -68,10 +68,12 @@ with their MIT licence in `THIRD_PARTY_LICENSES`.
 ## Run
 
 ```sh
-bin/basalt serve --model /path/to/model.basalt --host 127.0.0.1 --port 8080 [--alias NAME]
+bin/basalt serve --model /path/to/model.basalt --host 127.0.0.1 --port 7232 [--alias NAME]
 ```
 
 The server listens on 127.0.0.1 by default; do not expose it beyond that without `--api-key`.
+
+Its web UI is at http://127.0.0.1:7232/: **Chat** streams from the server's own `/v1/chat/completions` (the conversation stays in the browser), **Monitor** and **Hardware** show the live statistics, and **Settings** edits the main fields of the `--config` file (port, parallel, vision, max-context, kv, spec, spec-min-p, expert-cache, prefill) through `GET`/`POST /api/settings`. Values are checked with the server's and engine's own rules, every other key in the file is kept, and the old file is saved as `FILE.bak`. Saving needs the API key when one is set and works only from the PC the server runs on; the changes apply when the server is started again.
 
 ### Settings: `--config`
 
@@ -85,7 +87,7 @@ file carries no engine flags. Put every setting in one `basalt_config.json` and 
     "alias": "Qwen 3.8 FN",
     "gpu": "0,1",
     "host": "127.0.0.1",
-    "port": 8080
+    "port": 7232
   },
   "engine": {
     "expert-cache": "auto",
