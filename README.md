@@ -167,16 +167,18 @@ values for this PC; the app distributed on other PCs uses it to adapt to each ma
    NVIDIA GPU for compute; the GPU may also have a **secondary** monitor, on or switched off. The wizard shows what it
    detected and asks you to confirm or correct it.
 2. **What to leave to the other programs**: the share of RAM and commit (15% proposed, 5 to 50%, never less than 2 GB;
-   it becomes this PC's rule for every plan) and the VRAM: 0.5 GB for the driver, plus what other programs use on the
-   GPU now, plus 1.5 GB when the GPU drives the main monitor (or about 0.4 GB for a secondary one).
+   it becomes this PC's rule for every plan) and the VRAM: 0.5 GB for the driver, plus 1.5 GB when the GPU drives
+   the main monitor (or about 0.4 GB for a secondary one), rounded up to 256 MiB. What other programs use on the GPU
+   now is shown, not added: the expert cache sizes itself to the VRAM free at the load, which leaves it to them.
 3. **The model** and its own chat values.
 4. **The computed values**, with their reasons and the prediction: KV cache q4_0, prefill auto, the drafter at spec 7
    and min-p 0.5 when the file has one, resident experts and the PLE table in RAM when they fit, CPU workers from the
    processor, the longest context that fits.
 5. **Measure** (optional, about 5-10 minutes, only with less than 75% of the commit limit in use): the values are
    loaded, the real memory after the load is compared with the plan (a shorter context, then no resident experts,
-   while it is above), the speed is calibrated, the drafting floor is tried per request (0.3, 0.5, 0.7) and one other
-   verify window; the best is kept.
+   while it is above), the speed is calibrated, the drafting floor is tried per request (0.3, 0.5, 0.7) and the
+   verify windows 5, 7 and 8 (set at the engine's start: one reload each); the fastest is kept (a tie keeps the lower
+   window) and every result is shown.
 6. **Save**: the load profile **Machine Default** (with the model; it becomes the default) and the chat preset
    **Machine Default** (the model's sampling values). **Ripristina Machine Default** puts them back: in the Loader next
    to "Ripristina valori sicuri", and in the chat settings next to "Valori del modello".
@@ -224,20 +226,24 @@ predicted answer and prompt speeds, and the commit the load needs.
 - **The trade-off**: more VRAM left free means fewer experts on the GPU (a little slower, since the misses run on the
   CPU) and, on Windows, a smaller commit (VRAM counts toward it). Less VRAM left free is faster until the desktop or
   another program runs short.
-- **How to choose**: the wizard's rule above; the page names the programs on the GPU. Leave more while you game or
-  edit video on the same GPU.
+- **How to choose**: the wizard's rule above; the page names the programs on the GPU and warns when less than 1 GB
+  stays free on a GPU that drives the main monitor. Leave more while you game or edit video on the same GPU.
+
+**Measured memory.** After every real load the server compares the RAM and commit the load really took (the system's
+readings before and after) with the plan of the same values, and keeps the difference with the model's calibrations;
+from then on the plans of that model add what was above (shown as "measured at the last load").
 
 ### "Valori sicuri": computed, not fixed
 
 The built-in profile is computed each time from the hardware found and the chosen model, with the same rules as
 every plan and the wizard: this PC's share of RAM and commit stays free; the VRAM reserve is the wizard's (or its rule,
-with 1 GB for the monitor until the wizard confirms where it is); the KV cache is q4_0 and the context the longest that
+with 1 GB for the monitor until the wizard confirms where it is, 1.5 GB in all); the KV cache is q4_0 and the context the longest that
 fits (up to 262,144); the drafter is on (spec 7, min-p 0.5) only when the file has one, image input only when it has a
 projector; resident experts and the PLE table in RAM only when they fit; the CPU workers are the performance cores plus
 half the efficiency cores, less one (on a processor without efficiency cores, the physical cores less one). Each value
 comes with its reason in the Loader. As an example, on an RTX 5090 (32 GB, 1 GB used by other programs) with 128 GB of
 RAM and a processor with 8 performance and 16 efficiency cores, the 3-bit file gives: 262,144 tokens, q4_0, spec 7 at
-min-p 0.5, expert cache auto, resident experts, 2.5 GB left free, 15 CPU workers, image input dynamic.
+min-p 0.5, expert cache auto, resident experts, 1.5 GB left free, 15 CPU workers, image input dynamic.
 
 ### Where the settings live
 
