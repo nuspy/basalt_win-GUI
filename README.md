@@ -15,9 +15,9 @@ The model files are derived from Qwen3.8-Flash-Next and are under the
 [Qwen Community License 1.0](https://huggingface.co/Qwen/Qwen3.8-Flash-Next/blob/main/LICENSE), not under MIT.
 
 What this fork adds: a native **Windows 10/11** port of the engine (the Linux code paths are unchanged), and the
-pieces that make it usable on a desktop: a web UI with a Loader that predicts memory and speed before loading, load
-profiles, a model library that finds, verifies and converts models, start/stop scripts, and a small native app with a
-tray icon. The upstream README follows below this section, unchanged.
+pieces that make it usable on a desktop: a native app that opens on a web Loader which predicts memory and speed
+before loading, a configuration wizard that finds the best values for each PC, load profiles, a model library that
+finds, verifies and converts models, and start/stop scripts. The upstream README follows below this section, unchanged.
 
 ## How it works
 
@@ -47,30 +47,35 @@ tray icon. The upstream README follows below this section, unchanged.
   an I/O completion port, the CPU pool's topology from `GetLogicalProcessorInformationEx` with performance cores
   first on hybrid processors, `basalt serve` in a kill-on-close job object. `--no-pdl` launches every kernel without
   programmatic dependent launch, should a driver misbehave.
+- **BasaltPannello.exe is the main interface.** It starts the server without loading a model and opens on the web
+  Loader in its own window (WebView2), so the app and the browser have exactly the same settings; a tray icon keeps
+  Basalt running when the window is closed.
 - **Web UI** (`/`, Italian or English): Chat, Monitor, Hardware, **Carica modello** (the Loader) and Settings.
   - The Loader edits every engine setting, shows the VRAM, RAM and commit the plan needs next to what is free now
-    (15% of the RAM and 15% of the commit limit always stay free; the page file must never grow) and the predicted
-    speed; it reloads the engine inside the running server. Calibration measures the real speeds per model and setting.
+    (a share of the RAM and of the commit limit always stays free for other programs, 15% unless you choose another;
+    the page file must never grow) and the predicted speed; it loads the model, or reloads the engine inside the
+    running server. Calibration measures the real speeds per model and setting.
+  - The **configuration wizard** finds the best values for this PC and saves them as **Machine Default** (below).
   - **Load profiles** (engine settings, port, model) and **inference presets** (chat settings), shared by the UI, the
     scripts and the app; "Valori sicuri" is a built-in profile **computed from this PC and the chosen model**.
-  - Chat with **context policies** (stop at the limit, sliding window, or compaction by the model itself) and
-    **structured output** (`response_format` JSON / JSON Schema) validated and generated again with the error fed back
-    (`structured_retries`, default 2).
+  - Chat with the **model's own sampling values** (from the source GGUF), **context policies** (stop at the limit,
+    sliding window, or compaction by the model itself) and **structured output** (`response_format` JSON / JSON
+    Schema) validated and generated again with the error fed back (`structured_retries`, default 2).
   - **Model library**: one or more models folders, a header-only scan that marks every model *Pronto* (ready),
     *Da convertire* (a supported GGUF) or *Non compatibile* (with the reason), conversion and verification in the
     background, and the default server model.
-- **Server**: default port 7232, `--listen-first` (the page answers while the model loads), `/api/settings`,
-  `/api/loader/*`, `/api/profiles`, `/api/models/*`.
-- **Scripts** `Avvia-Basalt.ps1` / `Ferma-Basalt.ps1` with `--model`, `--config "<profile>"`, `--port`,
-  `-SoloServer` for agents, attach to a running server instead of starting a second one.
-- **BasaltPannello.exe**: a native start panel (model, profile, VRAM to leave free, memory check), the web UI in a
-  WebView2 window and a tray icon.
+- **Server**: default port 7232, `--listen-first` (the page answers while the model loads), `--standby` (the page
+  answers and nothing is loaded until the Loader's Load), `--relaunch-on-model-change` (a Load of another model ends
+  the server with exit code 75 so its owner starts it again with that model), `/api/settings`, `/api/loader/*`,
+  `/api/wizard/*`, `/api/profiles`, `/api/models/*`.
+- **Scripts** `Avvia-Basalt.ps1` / `Ferma-Basalt.ps1` with the same option names as Strata's: `-gui` (the default:
+  the app), `-browser`, `-server` (for agents), `--model`, `--config "<profile>"`, `--port`, `--vram-libera GB`.
 
 ## Requirements
 
 - An **NVIDIA Blackwell GPU** (compute capability 10.x or 12.x: GeForce RTX 50 series, RTX PRO 6000, B200). The
-  engine's kernels are built only for Blackwell; on any other GPU the Loader, the start script and the app say so
-  before starting, and nothing is loaded.
+  engine's kernels are built only for Blackwell; on any other GPU the Loader, the wizard, the start script and the app
+  say so before starting, and nothing is loaded.
 - **Windows 10 or 11 x64** (WDDM driver) or **Linux x86-64** for the engine, the server and the web UI. The scripts and
   the app are Windows only.
 - Enough RAM for the experts that do not fit in VRAM (about 50 GiB for the 3-bit files, with resident experts).
@@ -83,70 +88,124 @@ tray icon. The upstream README follows below this section, unchanged.
 
 ## Starting Basalt
 
-### As a server (scripts, agents)
-
 ```powershell
-.\Avvia-Basalt.ps1                                             # default profile, the model chosen as below
-.\Avvia-Basalt.ps1 --model "D:\Models\Qwen3.8-Flash-Next-IQ3_XXS.basalt" --port 7240
-.\Avvia-Basalt.ps1 --config "Valori sicuri" -SoloServer       # detached, no browser: for agents
-.\Avvia-Basalt.ps1 -Prova                                      # every check, nothing started, nothing written
+.\Avvia-Basalt.ps1                                             # the app (-gui): the Loader first, nothing loaded yet
+.\Avvia-Basalt.ps1 -browser                                    # the server tied to this window, the UI in the browser
+.\Avvia-Basalt.ps1 -server --config "Machine Default"          # detached, no UI: returns once the model is loaded
+.\Avvia-Basalt.ps1 -server --model "D:\Models\Qwen3.8-Flash-Next-IQ3_XXS.basalt" --port 7240 --vram-libera 2
+.\Avvia-Basalt.ps1 -prova                                      # every check, nothing started, nothing written
 .\Ferma-Basalt.ps1 --port 7240                                 # stop only that server (its process tree)
 ```
 
+Every option is accepted with one or two dashes and in any case (`-gui`, `--gui`, `-GUI`).
+
 | option | meaning |
 |---|---|
-| `--model "<file .basalt>"` (`-Model`) | the model to serve, as a full path |
-| `--config "<profile>"` (`-Config`) | the load profile; without it, the default profile chosen in the Loader |
-| `--port N` (`-Port`) | the port; wins over the profile's (default 7232) |
-| `--vram-reserve-mib N` | the VRAM to leave free instead of the profile's |
-| `-Converti` (`--converti`) | when the model is a GGUF to convert: show the plan, ask, convert, then serve the new file |
-| `-Sfondo`, `-SoloServer` (`--solo-server`) | detached (PID in `basalt.pid`); `-SoloServer` also opens no browser and returns when `/health` answers |
-| `-Prova` | dry run on a copy of the config file |
-| `-File FILE` | the config file (default `basalt_config.json` beside the script, created from the profile) |
+| *(none)* = `-gui` | opens `BasaltPannello.exe`, passing it `--config`, `--model`, `--port` and `--vram-libera`; the browser does **not** open, the address is printed and stays available. Without the built app the script says how to build it and uses `-browser` |
+| `-browser` | the server tied to this window (Ctrl+C or closing the window stops server and engine, and frees the RAM), the web UI opened in the browser |
+| `-server` | the server alone, detached, no app and no browser; the script returns when `/health` says the model is loaded. For agents; `Ferma-Basalt.ps1` stops it |
+| `--config "<profile>"` | the load profile; without it, the default profile (below) |
+| `--model "<file .basalt>"` | the model to serve, as a full path |
+| `--port N` | the port; wins over the profile's (default 7232) |
+| `--vram-libera GB` | the VRAM to leave free for other programs, in GB (`1.5` or `"1,5"`), instead of the profile's; `--vram-reserve-mib N` is the same in MiB |
+| `-converti` | with `-browser` / `-server`, when the model is a GGUF to convert: show the plan, ask, convert, then serve the new file (in the app: the Loader's **Converti…**) |
+| `-prova` | every check, nothing started; `-browser` / `-server` work on a copy of the config file |
+| `-file FILE` | the config file (default `basalt_config.json` beside the script; the app creates one without a model on a new installation) |
 
-**Which model starts.** The first of these that is set: `--model`; the model saved in the load profile
-(`--config`); the **default server model** (chosen in the Loader or the app with "Usa come modello predefinito per
-il server", kept per user); the model already in the config file. When none is set, the script stops with exit code 1
-and says how to choose one. A GGUF that is *Da convertire* is not started: the script says how to convert it, or
-converts it with `-Converti` after a confirmation that states the size of the new file and the disk it goes to. A
-file that is *Non compatibile* is refused with the reason.
+`-Sfondo` and `-SoloServer`, the old names, still work as `-server` and print a note. `Ferma-Basalt.ps1` takes
+`--port N` and `--file FILE` the same way.
 
-**One server per installation.** If a Basalt server of this folder is already running, on any port, the script
-starts nothing: it prints that server's address, model and profile and exits 0. A `--model` that differs from the
-model it serves is not loaded, and the script says so (stop it with `Ferma-Basalt.ps1 --port N` first). The memory
-check uses the Loader's own plan; a start that would need the page file to grow is refused, as is a GPU the engine
-does not support (exit code 1).
+**When a server is already running** (one per installation, on any port): `-gui` opens the app, which asks
+**Collegati** (use it) or **Cambia modello** (stop only that server's process tree, then choose in the Loader);
+`-browser` opens the browser on it; `-server` prints its address, model and profile and returns. A `--model` that
+differs from the model it serves is not loaded, and the script says so.
+
+**Which model starts** with `-browser` / `-server`: the first of these that is set: `--model`; the model saved in the
+load profile; the **default server model** (chosen in the Loader with "Usa come modello predefinito per il server");
+the model already in the config file. When none is set, the script stops with exit code 1 and says how to choose one.
+The memory check uses the Loader's own plan; a start that would need the page file to grow is refused, as is a GPU the
+engine does not support (exit code 1).
+
+**The default load profile**: the one chosen with **Rendi predefinito** in the Loader, else **Machine Default** once
+the wizard has saved it, else **Valori sicuri**.
 
 Directly, on Windows or Linux: `bin\basalt.exe serve --config basalt_config.json [--port N]` (`bin/basalt serve` on
 Linux; every option is in [Settings](#settings---config) below and in `python -m serve.server --help`).
 
 For agents: the API is OpenAI-compatible at `http://127.0.0.1:<port>/v1` (`/v1/chat/completions`, `/v1/messages`,
-`/v1/responses`). `GET /health` answers `{"service": "basalt", "loaded": true, ...}` once the model is in;
-`basalt.pid` holds the PID, port and profile of a detached server.
+`/v1/responses`). `GET /health` answers `{"service": "basalt", "loaded": true, ...}` once the model is in
+(`"standby": true` while a server started by the app waits for the Loader); `basalt.pid` holds the PID, port and
+profile of a server started by a script or the app.
 
-### With the app or the browser
+### The app
 
-`tools\windows\desktop\publish\BasaltPannello.exe` (the name differs from the engine's `basalt.exe` on purpose). The
-first time, it asks for the models folders (a folder picker, with the usual places found on this PC offered). Its
-start panel then has the **model** (the one used last time preselected, with its status), the load profile, the
-**VRAM to leave free**, the port and the memory check; **Avvia** starts the server in the app's own job (it ends with
-the app) and shows the web UI, **Avvia solo server** starts a detached server for agents. Closing the window hides
-it to the tray icon (Apri, Ricarica con altri parametri, Spegni). When a server is already running the app offers
-**Collegati** (use it) or **Cambia modello** (stop only that server's process tree and load the chosen model). With
-the server running, the same UI is at `http://127.0.0.1:7232/` in any browser.
+`tools\windows\desktop\publish\BasaltPannello.exe` (the name differs from the engine's `basalt.exe` on purpose; the
+same options as the script: `--config`, `--model`, `--port`, `--vram-libera`, `--file`). On opening it starts the
+server in its own job (it ends with the app) **without loading a model** and shows the web **Loader**:
+
+1. the first time, the models folders (**Sfoglia…** opens the Windows folder dialog; the usual places found on this
+   PC are offered);
+2. the model, its status, **Verifica** and **Converti…**;
+3. while this PC has no Machine Default, the **configuration wizard** is offered (it can be skipped, or turned off);
+4. the load profile and every value, the VRAM to leave free, the prediction, then **Carica**.
+
+Loading another model than the one the server was started with saves it and starts the server again with it; the page
+reconnects by itself. Closing the window hides it to the tray icon: **Apri**, **Ricarica con altri parametri** (the
+Loader), **Avvia solo server (per gli agenti)** (the same as `Avvia-Basalt.ps1 -server`, in place of the app's server),
+**Spegni**. If the server cannot start (a port in use, a missing build), the app shows the reason, the end of the log
+and a native start panel as a fallback. With the server running, the same UI is at `http://127.0.0.1:7232/` in any
+browser.
+
+### Configuration wizard and Machine Default
+
+**Configurazione guidata** in the Loader (also `python -m serve.loader wizard` for agents, below) finds the best
+values for this PC; the app distributed on other PCs uses it to adapt to each machine.
+
+1. **This PC**: RAM, the commit limit and its use, the page file (Windows-managed files may grow: Basalt never makes
+   them grow), the performance and efficiency cores, the NVIDIA GPU, and the video adapters with the one that shows
+   the **main monitor**. A PC may drive its monitor from a separate card (an integrated GPU, for example) and keep the
+   NVIDIA GPU for compute; the GPU may also have a **secondary** monitor, on or switched off. The wizard shows what it
+   detected and asks you to confirm or correct it.
+2. **What to leave to the other programs**: the share of RAM and commit (15% proposed, 5 to 50%, never less than 2 GB;
+   it becomes this PC's rule for every plan) and the VRAM: 0.5 GB for the driver, plus what other programs use on the
+   GPU now, plus 1.5 GB when the GPU drives the main monitor (or about 0.4 GB for a secondary one).
+3. **The model** and its own chat values.
+4. **The computed values**, with their reasons and the prediction: KV cache q4_0, prefill auto, the drafter at spec 7
+   and min-p 0.5 when the file has one, resident experts and the PLE table in RAM when they fit, CPU workers from the
+   processor, the longest context that fits.
+5. **Measure** (optional, about 5-10 minutes, only with less than 75% of the commit limit in use): the values are
+   loaded, the real memory after the load is compared with the plan (a shorter context, then no resident experts,
+   while it is above), the speed is calibrated, the drafting floor is tried per request (0.3, 0.5, 0.7) and one other
+   verify window; the best is kept.
+6. **Save**: the load profile **Machine Default** (with the model; it becomes the default) and the chat preset
+   **Machine Default** (the model's sampling values). **Ripristina Machine Default** puts them back: in the Loader next
+   to "Ripristina valori sicuri", and in the chat settings next to "Valori del modello".
+
+Without questions, for agents (the detected and proposed answers unless given; the measurement needs the Loader):
+
+```powershell
+.venv\Scripts\python -m serve.loader wizard --model "D:\Models\Qwen3.8-Flash-Next-IQ3_XXS.basalt" `
+    --monitor none --free-share 0.15 --vram-libera 2 --save        # --json for one JSON object
+```
+
+**The chat's settings** stay per client: the app and each browser keep their own. A client opens with the preset it
+used last, if it still exists; otherwise it follows the current default (Machine Default, else the model's values).
+Settings changed by hand are kept, and the panel says which preset is in use.
 
 ### Models: folders, conversion, verification
 
-The Loader's model section (and the app's first run) asks for one or more **models folders**, for example the folder
-of your `.basalt` files and LM Studio's download folder. Every `.basalt` and `.gguf` under them is described from its
-header alone and cached; nothing reads the weights. Each model gets a status:
+The Loader's model section asks for one or more **models folders**, for example the folder of your `.basalt` files and
+LM Studio's download folder. Every `.basalt` and `.gguf` under them is described from its header alone and cached;
+nothing reads the weights. Each model gets a status:
 
 - **Pronto**: a `.basalt` file the engine can open. **Verifica** checks every section's SHA-256 in the background.
 - **Da convertire**: a GGUF set of Qwen3.8-Flash-Next with every shard present and expert formats the GPU kernels
   cover (for example IQ3_XXS, IQ3_S, Q2_0, Q8_0 and the Unsloth UD quants). **Converti** first shows a dialog with the
   size of the new file, the disk and its free space; it runs only after that confirmation, with enough free space and
   the commit below 75% of its limit. The vision projector (`mmproj`) in the same folder goes into the file; the MTP
-  drafter comes from a drafter folder already on disk or is fetched from the Qwen checkpoint (`mtp_fetch.py`).
+  drafter comes from a drafter folder already on disk or is fetched from the Qwen checkpoint (`mtp_fetch.py`). The
+  source GGUF's recommended sampling values (`general.sampling.*`) become the file's chat defaults; for files
+  converted before, the server reads them from the copy of the source header kept in the file.
 - **Non compatibile**: anything else, with the reason (another architecture, expert formats without kernels such as
   static Q2_K experts or Q4_0 expert downs, a missing shard, an unfinished download). Projector and drafter files are
   listed as attachments of their model.
@@ -156,8 +215,8 @@ FILE | resolve [--model FILE] [--profile NAME] | convert --model GGUF [--out DIR
 
 ### VRAM to leave free
 
-"VRAM da lasciare libera" (in the Loader, in Settings and in the app; `engine.vram-reserve-mib`, saved in profiles)
-is the VRAM the engine leaves untouched for the desktop, the browser, the driver and other programs. With the expert
+"VRAM da lasciare libera" (in the Loader, in Settings, in the wizard; `engine.vram-reserve-mib`, saved in profiles) is
+the VRAM the engine leaves untouched for the desktop, the browser, the driver and other programs. With the expert
 cache on `auto`, everything else holds experts. Moving the control recomputes, live: the VRAM left for experts, how
 many experts fit (for example "13.066 di 24.576 esperti in VRAM (53%)"), the expected expert-cache hit rate, the
 predicted answer and prompt speeds, and the commit the load needs.
@@ -165,29 +224,33 @@ predicted answer and prompt speeds, and the commit the load needs.
 - **The trade-off**: more VRAM left free means fewer experts on the GPU (a little slower, since the misses run on the
   CPU) and, on Windows, a smaller commit (VRAM counts toward it). Less VRAM left free is faster until the desktop or
   another program runs short.
-- **How to choose**: 1 GB is the least for the desktop and the driver, 2 GB with other programs on the GPU (the page
-  names them). The computed safe value is 3/16 of the card, between 1 and 8 GiB (6 GiB on a 32 GB card).
-  Leave more while you game or edit video on the same GPU.
+- **How to choose**: the wizard's rule above; the page names the programs on the GPU. Leave more while you game or
+  edit video on the same GPU.
 
 ### "Valori sicuri": computed, not fixed
 
 The built-in profile is computed each time from the hardware found and the chosen model, with the same rules as
-every plan: 15% of the RAM and 15% of the commit limit stay free; the VRAM reserve is 3/16 of the card; the KV cache
-is q4_0 and the context the longest that fits (up to 262,144); the drafter is on (spec 7) only when the file has one,
-image input only when it has a projector; resident experts and the PLE table in RAM only when they fit; the CPU
-workers are the performance cores plus half the efficiency cores, less one (on a processor without efficiency cores,
-the physical cores less one). Each value comes with its reason in the Loader. As an example, on an RTX 5090 (32 GB)
-with 128 GB of RAM and a processor with 8 performance and 16 efficiency cores, the 3-bit file gives: 262,144 tokens,
-q4_0, spec 7 at min-p 0.5, expert cache auto, resident experts, 6 GiB left free, 15 CPU workers, image input dynamic.
+every plan and the wizard: this PC's share of RAM and commit stays free; the VRAM reserve is the wizard's (or its rule,
+with 1 GB for the monitor until the wizard confirms where it is); the KV cache is q4_0 and the context the longest that
+fits (up to 262,144); the drafter is on (spec 7, min-p 0.5) only when the file has one, image input only when it has a
+projector; resident experts and the PLE table in RAM only when they fit; the CPU workers are the performance cores plus
+half the efficiency cores, less one (on a processor without efficiency cores, the physical cores less one). Each value
+comes with its reason in the Loader. As an example, on an RTX 5090 (32 GB, 1 GB used by other programs) with 128 GB of
+RAM and a processor with 8 performance and 16 efficiency cores, the 3-bit file gives: 262,144 tokens, q4_0, spec 7 at
+min-p 0.5, expert cache auto, resident experts, 2.5 GB left free, 15 CPU workers, image input dynamic.
 
 ### Where the settings live
 
-Per user, never in the repository: `%USERPROFILE%\.cache\basalt\` on Windows and `~/.cache/basalt/` on Linux (or
-`BASALT_CACHE`) hold `profiles.json` (load profiles, inference presets, the default profile), `models.json` (the
-models folders, the default server model, the last output folder), `models-scan.json` (the header cache), the
-per-model calibrations and the logs of conversion and verification jobs. The app keeps the last model and its own
-state in `%APPDATA%\BasaltPannello\desktop.json`. `basalt_config.json` beside the scripts is written by them from the
-chosen profile and is not tracked.
+Per user, never in the repository, in the **user data folder**: `%APPDATA%\BasaltPannello\` on Windows,
+`~/Library/Application Support/Basalt/` on macOS, `$XDG_DATA_HOME/basalt/` (`~/.local/share/basalt/`) elsewhere, or
+`BASALT_DATA`. It holds `profiles.json` (load profiles, inference presets, the default profile), `models.json` (the
+models folders, the default server model, the last output folder), `machine.json` (the wizard's answers: the share of
+RAM and commit, the VRAM to leave free, where the monitor is), `calibration\<model>.json` (the measured speeds) and the
+app's `desktop.json`. Caches that can be rebuilt stay in `%USERPROFILE%\.cache\basalt\` (`~/.cache/basalt/`, or
+`BASALT_CACHE`): the header scan, the logs of conversion and verification jobs, the tokenizer and vision files
+unpacked from a model, the engine log. Versions before this one kept the settings in the cache folder: they are copied
+(not moved) to the user data folder the first time. `basalt_config.json` beside the scripts is written by them and by
+the Loader from the chosen profile and is not tracked.
 
 ---
 
