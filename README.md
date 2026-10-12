@@ -5,9 +5,9 @@
   </picture>
 </p>
 
-# Basalt for Windows: this fork
+# Basalt Win+GUI: this fork
 
-This repository is a fork of **[Basalt](https://github.com/jesdga95/basalt)** by jesdga95 (MIT license), which is itself
+**Basalt Win+GUI** is a fork of **[Basalt](https://github.com/jesdga95/basalt)** by jesdga95 (MIT license), which is itself
 a fork of **[Strata](https://github.com/Niko1221/Strata)** by Niko1221 (MIT license). The engine, the `.basalt` model
 format, the converter and the server come from Basalt; the copyright notices of both projects and of the code they
 include (ggml, llama.cpp and others) are kept in [LICENSE](LICENSE) and [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES).
@@ -47,9 +47,9 @@ finds, verifies and converts models, and start/stop scripts. The upstream README
   an I/O completion port, the CPU pool's topology from `GetLogicalProcessorInformationEx` with performance cores
   first on hybrid processors, `basalt serve` in a kill-on-close job object. `--no-pdl` launches every kernel without
   programmatic dependent launch, should a driver misbehave.
-- **BasaltPannello.exe is the main interface.** It starts the server without loading a model and opens on the web
-  Loader in its own window (WebView2), so the app and the browser have exactly the same settings; a tray icon keeps
-  Basalt running when the window is closed.
+- **The app, BasaltWinGUI.exe ("Basalt Win+GUI"), is the main interface.** It starts the server without loading a
+  model and opens on the web Loader in its own window (WebView2), so the app and the browser have exactly the same
+  settings; a tray icon keeps Basalt Win+GUI running when the window is closed.
 - **Web UI** (`/`, Italian or English): Chat, Monitor, Hardware, **Carica modello** (the Loader) and Settings.
   - The Loader edits every engine setting, shows the VRAM, RAM and commit the plan needs next to what is free now
     (a share of the RAM and of the commit limit always stays free for other programs, 15% unless you choose another;
@@ -86,7 +86,7 @@ finds, verifies and converts models, and start/stop scripts. The upstream README
 - Building: Windows in [docs/WINDOWS.md](docs/WINDOWS.md) (Visual Studio v143 tools, CUDA 13.1, CMake, Ninja), Linux
   in [Build](#build) below. The app: `dotnet publish tools\windows\desktop -c Release -o tools\windows\desktop\publish`.
 
-## Starting Basalt
+## Starting Basalt Win+GUI
 
 ```powershell
 .\Avvia-Basalt.ps1                                             # the app (-gui): the Loader first, nothing loaded yet
@@ -101,7 +101,7 @@ Every option is accepted with one or two dashes and in any case (`-gui`, `--gui`
 
 | option | meaning |
 |---|---|
-| *(none)* = `-gui` | opens `BasaltPannello.exe`, passing it `--config`, `--model`, `--port` and `--vram-libera`; the browser does **not** open, the address is printed and stays available. Without the built app the script says how to build it and uses `-browser` |
+| *(none)* = `-gui` | opens `BasaltWinGUI.exe`, passing it `--config`, `--model`, `--port` and `--vram-libera`; the browser does **not** open, the address is printed and stays available. Without the built app the script says how to build it and uses `-browser` |
 | `-browser` | the server tied to this window (Ctrl+C or closing the window stops server and engine, and frees the RAM), the web UI opened in the browser |
 | `-server` | the server alone, detached, no app and no browser; the script returns when `/health` says the model is loaded. For agents; `Ferma-Basalt.ps1` stops it |
 | `--config "<profile>"` | the load profile; without it, the default profile (below) |
@@ -139,7 +139,8 @@ profile of a server started by a script or the app.
 
 ### The app
 
-`tools\windows\desktop\publish\BasaltPannello.exe` (the name differs from the engine's `basalt.exe` on purpose; the
+`tools\windows\desktop\publish\BasaltWinGUI.exe` (window and tray: "Basalt Win+GUI"; the file name differs from the
+engine's `basalt.exe` on purpose; the
 same options as the script: `--config`, `--model`, `--port`, `--vram-libera`, `--file`). On opening it starts the
 server in its own job (it ends with the app) **without loading a model** and shows the web **Loader**:
 
@@ -161,8 +162,8 @@ browser.
 **Configurazione guidata** in the Loader (also `python -m serve.loader wizard` for agents, below) finds the best
 values for this PC; the app distributed on other PCs uses it to adapt to each machine.
 
-1. **This PC**: RAM, the commit limit and its use, the page file (Windows-managed files may grow: Basalt never makes
-   them grow), the performance and efficiency cores, the NVIDIA GPU, and the video adapters with the one that shows
+1. **This PC**: RAM, the commit limit and its use, the page file (Windows-managed files may grow: Basalt Win+GUI
+   never makes them grow), the performance and efficiency cores, the NVIDIA GPU, and the video adapters with the one that shows
    the **main monitor**. A PC may drive its monitor from a separate card (an integrated GPU, for example) and keep the
    NVIDIA GPU for compute; the GPU may also have a **secondary** monitor, on or switched off. The wizard shows what it
    detected and asks you to confirm or correct it.
