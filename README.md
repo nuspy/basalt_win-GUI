@@ -320,16 +320,68 @@ The server speaks the OpenAI and the Anthropic APIs at `http://127.0.0.1:<port>`
 | `POST /v1/responses` | OpenAI Responses, **stateless**: send the whole conversation each time (`previous_response_id` and `GET /v1/responses/<id>` are not kept) |
 | `POST /v1/messages` | Anthropic Messages: tools, thinking blocks, images, `stream` |
 | `POST /v1/messages/count_tokens` | Anthropic token count: the same prompt `/v1/messages` would read, not run |
-| `GET /v1/models` | the served model (its name, context, state) |
+| `GET /v1/models` | the served model and every other model of the models folders it could serve (OpenAI or Anthropic shape) |
+| `GET /v1/models/{id}` | one of them |
 | `GET /health` | `{"service": "basalt", "loaded": true, ...}` once the model is in; `"standby": true` while a server started by the app waits for the Loader |
 
 **Start it for agents** with `.\Avvia-Basalt.ps1 -server` (it returns once the model is loaded; add `-riusa` in
 unattended scripts) and stop it with `.\Ferma-Basalt.ps1`. `basalt.pid` holds the PID, port and profile of a server
 started by a script or the app.
 
-**Model name.** `/v1/models` reports one model: the `--alias` (or `"alias"` in the config file's `server` section),
-else the name stored in the model file. The `model` field of a request may be anything (the server has one model);
-the answer carries the served name.
+**Model name.** The served model's id is the `--alias` (or `"alias"` in the config file's `server` section), else the
+name stored in the model file. The `model` field of a request may be anything (the server runs one model at a time)
+and the answer carries the served name, with one exception: a name that `GET /v1/models` lists as another, unloaded
+model is refused (below).
+
+**The model list.** `GET /v1/models` lists the served model first (`"status": {"value": "loaded"}`, or `"unloaded"`
+while it loads on the first request), then every `.basalt` file of the models folders that the Loader shows as
+**ready** (a GGUF to convert or a file Basalt cannot run is not listed), each with `"status": {"value": "unloaded"}`.
+The id of such a model is its file name without `.basalt` (with a short hash after it when two folders hold the same
+file name): the name to pick in a client. Each entry has `created` (the file's date), `owned_by`, `display_name`, the
+context length when the file says it (`context_length`; the served model's `meta.n_ctx` is the context it runs with,
+another model's `meta.n_ctx_train` the longest it was trained for), `architecture.input_modalities` (`image` when the
+file has a vision projector) and, only on a server bound to 127.0.0.1, the file's `path`. The folders are scanned
+from the files' headers on a thread, at most every 30 seconds, so neither the list nor a chat request waits for the
+disk; the list works in standby too (no model loaded: only the folders' models). A request that names a model the
+list shows as unloaded (by its id, its file name or its path) gets a 404 that says how to load it, instead of an answer
+from the loaded model: OpenAI `{"error": {"code": "model_not_found", ...}}`, Anthropic
+`{"type": "error", "error": {"type": "not_found_error", ...}}`.
+
+```sh
+# OpenAI shape
+curl http://127.0.0.1:7232/v1/models
+# {"object": "list", "data": [
+#   {"id": "Qwen3.8 Flash Next Uncensored", "object": "model", "created": 1791904651, "owned_by": "basalt",
+#    "display_name": "Qwen3.8 Flash Next Uncensored", "status": {"value": "loaded"}, "meta": {"n_ctx": 131702},
+#    "context_length": 131702, "architecture": {"input_modalities": ["text"], "output_modalities": ["text"]},
+#    "path": "D:/Modelli/Qwen3.8-Flash-Next-Uncensored-IQ3_XXS.basalt"},
+#   {"id": "OrcaRouter-IQ3_XXS", "object": "model", "created": 1791904651, "owned_by": "basalt",
+#    "display_name": "OrcaRouter", "status": {"value": "unloaded"}, "context_length": 262144,
+#    "meta": {"n_ctx_train": 262144}, "quant": "IQ3_XXS", "path": "D:/Modelli/OrcaRouter-IQ3_XXS.basalt", ...}]}
+
+# Anthropic shape: with an anthropic-version header (or x-api-key without Authorization)
+curl http://127.0.0.1:7232/v1/models -H "anthropic-version: 2023-06-01"
+# {"data": [{"type": "model", "id": "Qwen3.8 Flash Next Uncensored", "display_name": "Qwen3.8 Flash Next Uncensored",
+#            "created_at": "2026-10-13T15:17:31Z"},
+#           {"type": "model", "id": "OrcaRouter-IQ3_XXS", "display_name": "OrcaRouter",
+#            "created_at": "2026-10-13T15:17:31Z"}],
+#  "has_more": false, "first_id": "Qwen3.8 Flash Next Uncensored", "last_id": "OrcaRouter-IQ3_XXS"}
+
+# one model, in either shape (an id with spaces is URL-encoded); 404 model_not_found / not_found_error otherwise
+curl http://127.0.0.1:7232/v1/models/OrcaRouter-IQ3_XXS
+curl http://127.0.0.1:7232/v1/models/OrcaRouter-IQ3_XXS -H "anthropic-version: 2023-06-01"
+
+# a chat that names the unloaded model
+curl http://127.0.0.1:7232/v1/chat/completions -H "Content-Type: application/json" \
+  -d '{"model": "OrcaRouter-IQ3_XXS", "messages": [{"role": "user", "content": "hi"}]}'
+# 404 {"error": {"message": "The model 'OrcaRouter-IQ3_XXS' is not loaded (this server is serving 'Qwen3.8 Flash
+#   Next Uncensored'). Load it in the web page's Loader (choose it in the model list, then Load), or start the server
+#   with it: .\Avvia-Basalt.ps1 --model \"D:/Modelli/OrcaRouter-IQ3_XXS.basalt\"", "type": "invalid_request_error",
+#   "param": "model", "code": "model_not_found"}}
+```
+
+TODO (possible future: load on request): the server does not switch models by itself when a request names another
+listed model; it only says how to load it. Loading the asked model on request is left for later.
 
 **API key.** The server listens on 127.0.0.1 only and needs no key: clients that insist on one can send any value.
 `--api-key KEY` (command line only, never in a config file) makes `/v1/*` require it as `Authorization: Bearer KEY`

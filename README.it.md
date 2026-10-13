@@ -336,16 +336,69 @@ Il server parla le API di OpenAI e di Anthropic a `http://127.0.0.1:<porta>` (po
 | `POST /v1/responses` | OpenAI Responses, **senza stato**: si manda tutta la conversazione ogni volta (`previous_response_id` e `GET /v1/responses/<id>` non sono conservati) |
 | `POST /v1/messages` | Anthropic Messages: strumenti, blocchi di ragionamento (thinking), immagini, `stream` |
 | `POST /v1/messages/count_tokens` | conteggio dei token di Anthropic: lo stesso prompt che leggerebbe `/v1/messages`, senza eseguirlo |
-| `GET /v1/models` | il modello servito (nome, contesto, stato) |
+| `GET /v1/models` | il modello servito e ogni altro modello delle cartelle dei modelli che potrebbe servire (forma OpenAI o Anthropic) |
+| `GET /v1/models/{id}` | uno di questi |
 | `GET /health` | `{"service": "basalt", "loaded": true, ...}` quando il modello è caricato; `"standby": true` mentre un server avviato dall'app aspetta il Loader |
 
 **Avviarlo per gli agenti**: `.\Avvia-Basalt.ps1 -server` (torna quando il modello è caricato; negli script senza
 nessuno davanti aggiungi `-riusa`), fermarlo con `.\Ferma-Basalt.ps1`. `basalt.pid` contiene PID, porta e profilo di un
 server avviato da uno script o dall'app.
 
-**Nome del modello.** `/v1/models` riporta un modello: l'`--alias` (o `"alias"` nella sezione `server` del file di
+**Nome del modello.** L'id del modello servito è l'`--alias` (o `"alias"` nella sezione `server` del file di
 configurazione), altrimenti il nome scritto nel file del modello. Il campo `model` di una richiesta può essere
-qualunque cosa (il server ha un solo modello); la risposta riporta il nome servito.
+qualunque cosa (il server esegue un modello alla volta) e la risposta riporta il nome servito, con un'eccezione: un
+nome che `GET /v1/models` elenca come un altro modello, non caricato, viene rifiutato (sotto).
+
+**L'elenco dei modelli.** `GET /v1/models` elenca per primo il modello servito (`"status": {"value": "loaded"}`, o
+`"unloaded"` mentre si carica alla prima richiesta), poi ogni file `.basalt` delle cartelle dei modelli che il Loader
+mostra come **pronto** (un GGUF da convertire o un file che Basalt non può eseguire non è elencato), ciascuno con
+`"status": {"value": "unloaded"}`. L'id di un modello così è il nome del file senza `.basalt` (con un breve hash in
+coda quando due cartelle hanno lo stesso nome di file): il nome da scegliere in un client. Ogni voce ha `created` (la
+data del file), `owned_by`, `display_name`, la lunghezza del contesto quando il file la dice (`context_length`; per il
+modello servito `meta.n_ctx` è il contesto con cui gira, per un altro modello `meta.n_ctx_train` il più lungo con cui
+è stato addestrato), `architecture.input_modalities` (`image` quando il file ha un proiettore visivo) e, solo su un
+server in ascolto su 127.0.0.1, il `path` del file. Le cartelle si leggono dalle intestazioni dei file, su un thread, al
+massimo ogni 30 secondi: né l'elenco né una richiesta di chat aspettano il disco; l'elenco funziona anche in standby
+(nessun modello caricato: solo i modelli delle cartelle). Una richiesta che nomina un modello che l'elenco dà come non
+caricato (per id, nome del file o percorso) riceve un 404 che dice come caricarlo, invece della risposta del modello
+caricato: OpenAI `{"error": {"code": "model_not_found", ...}}`, Anthropic
+`{"type": "error", "error": {"type": "not_found_error", ...}}`.
+
+```sh
+# forma OpenAI
+curl http://127.0.0.1:7232/v1/models
+# {"object": "list", "data": [
+#   {"id": "Qwen3.8 Flash Next Uncensored", "object": "model", "created": 1791904651, "owned_by": "basalt",
+#    "display_name": "Qwen3.8 Flash Next Uncensored", "status": {"value": "loaded"}, "meta": {"n_ctx": 131702},
+#    "context_length": 131702, "architecture": {"input_modalities": ["text"], "output_modalities": ["text"]},
+#    "path": "D:/Modelli/Qwen3.8-Flash-Next-Uncensored-IQ3_XXS.basalt"},
+#   {"id": "OrcaRouter-IQ3_XXS", "object": "model", "created": 1791904651, "owned_by": "basalt",
+#    "display_name": "OrcaRouter", "status": {"value": "unloaded"}, "context_length": 262144,
+#    "meta": {"n_ctx_train": 262144}, "quant": "IQ3_XXS", "path": "D:/Modelli/OrcaRouter-IQ3_XXS.basalt", ...}]}
+
+# forma Anthropic: con l'header anthropic-version (o x-api-key senza Authorization)
+curl http://127.0.0.1:7232/v1/models -H "anthropic-version: 2023-06-01"
+# {"data": [{"type": "model", "id": "Qwen3.8 Flash Next Uncensored", "display_name": "Qwen3.8 Flash Next Uncensored",
+#            "created_at": "2026-10-13T15:17:31Z"},
+#           {"type": "model", "id": "OrcaRouter-IQ3_XXS", "display_name": "OrcaRouter",
+#            "created_at": "2026-10-13T15:17:31Z"}],
+#  "has_more": false, "first_id": "Qwen3.8 Flash Next Uncensored", "last_id": "OrcaRouter-IQ3_XXS"}
+
+# un modello, nelle due forme (un id con spazi va codificato nell'URL); altrimenti 404 model_not_found / not_found_error
+curl http://127.0.0.1:7232/v1/models/OrcaRouter-IQ3_XXS
+curl http://127.0.0.1:7232/v1/models/OrcaRouter-IQ3_XXS -H "anthropic-version: 2023-06-01"
+
+# una chat che nomina il modello non caricato
+curl http://127.0.0.1:7232/v1/chat/completions -H "Content-Type: application/json" \
+  -d '{"model": "OrcaRouter-IQ3_XXS", "messages": [{"role": "user", "content": "ciao"}]}'
+# 404 {"error": {"message": "The model 'OrcaRouter-IQ3_XXS' is not loaded (this server is serving 'Qwen3.8 Flash
+#   Next Uncensored'). Load it in the web page's Loader (choose it in the model list, then Load), or start the server
+#   with it: .\Avvia-Basalt.ps1 --model \"D:/Modelli/OrcaRouter-IQ3_XXS.basalt\"", "type": "invalid_request_error",
+#   "param": "model", "code": "model_not_found"}}
+```
+
+TODO (possibile in futuro: caricare su richiesta): il server non cambia modello da solo quando una richiesta ne nomina
+un altro dell'elenco; dice solo come caricarlo. Caricare il modello chiesto alla richiesta resta per dopo.
 
 **Chiave API.** Il server ascolta solo su 127.0.0.1 e non chiede chiavi: ai client che ne vogliono una per forza si
 può dare un valore qualunque. `--api-key CHIAVE` (solo da riga di comando, mai nel file di configurazione) la rende
