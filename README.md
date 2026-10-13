@@ -53,7 +53,17 @@ finds, verifies and converts models, and start/stop scripts. The upstream README
   model and opens on the web Loader in its own window (WebView2), so the app and the browser have exactly the same
   settings; a tray icon keeps Basalt Win+GUI running when the window is closed.
 - **Web UI** (`/`, English or Italian, see [Language](#language)): Chat, Monitor, Hardware, the **Loader** (*Carica
-  modello* in Italian) and Settings.
+  modello* in Italian) and Settings. Each setting lives in one tab:
+  - **Loader**: everything decided when the model is loaded (the model, max context, KV cache, prompt reading, the MTP
+    drafter and its window, the expert cache, resident experts, **VRAM to leave free**, the PLE table, CPU workers,
+    parallel slots, image input, the port), the load profiles and the **default profile** (★, Machine Default,
+    Valori sicuri: this is where the default loading values live), the wizard, calibration and Load.
+  - **Settings**: the app's own preferences: language, the models folders, the **default server model**, the share of
+    RAM and commit left to other programs, whether the wizard is offered at start. A *Loading parameters* line shows
+    what runs now (for example "256K · q4_0 · spec 7 · 4 GB VRAM free") and the profile it matches, with **Open the
+    Loader** to change it.
+  - **Chat → Settings** (the chat panel): the inference values (sampling, reasoning, context policy, structured
+    output) and their presets. **Monitor** and **Hardware** only show.
   - The Loader edits every engine setting, shows the VRAM, RAM and commit the plan needs next to what is free now
     (a share of the RAM and of the commit limit always stays free for other programs, 15% unless you choose another;
     the page file must never grow) and the predicted speed; it loads the model, or reloads the engine inside the
@@ -163,7 +173,7 @@ Every option is accepted with one or two dashes and in any case (`-gui`, `--gui`
     script only says what it would do.
 
 **Which model starts** with `-browser` / `-server`: the first of these that is set: `--model`; the model saved in the
-load profile; the **default server model** (chosen in the Loader with **Use as the default server model**);
+load profile; the **default server model** (chosen in **Settings → Default server model**);
 the model already in the config file. When none is set, the script stops with exit code 1 and says how to choose one.
 The memory check uses the Loader's own plan; a start that would need the page file to grow is refused, as is a GPU the
 engine does not support (exit code 1).
@@ -208,7 +218,7 @@ it detects, says why, and can check it with a real measurement.
    NVIDIA GPU for compute; the GPU may also have a **secondary** monitor, on or switched off. The wizard shows what it
    detected and asks you to confirm or correct it.
 2. **What to leave to the other programs**: the share of RAM and commit (15% proposed, 5 to 50%, never less than 2 GB;
-   it becomes this PC's rule for every plan) and the VRAM: 0.5 GB for the driver, plus 1.5 GB when the GPU drives
+   it becomes this PC's rule for every plan, changed later in **Settings → Memory and start**) and the VRAM: 0.5 GB for the driver, plus 1.5 GB when the GPU drives
    the main monitor (or about 0.4 GB for a secondary one), rounded up to 256 MiB. What other programs use on the GPU
    now is shown, not added: the expert cache sizes itself to the VRAM free at the load, which leaves it to them.
 3. **The model** and its own chat values.
@@ -237,8 +247,9 @@ Settings changed by hand are kept, and the panel says which preset is in use.
 
 ### Models: folders, conversion, verification
 
-The Loader's model section asks for one or more **models folders**, for example the folder of your `.basalt` files and
-LM Studio's download folder. Every `.basalt` and `.gguf` under them is described from its header alone and cached;
+**Settings → Models folders** holds one or more **models folders** (the Loader asks for them the first time), for
+example the folder of your `.basalt` files and LM Studio's download folder; **Settings → Default server model** is the
+model the scripts and the app start without `--model`. The Loader picks the model to load from them. Every `.basalt` and `.gguf` under them is described from its header alone and cached;
 nothing reads the weights. Each model gets a status:
 
 - **Ready**: a `.basalt` file the engine can open. **Verify** checks every section's SHA-256 in the background.
@@ -258,7 +269,7 @@ FILE | resolve [--model FILE] [--profile NAME] | convert --model GGUF [--out DIR
 
 ### VRAM to leave free
 
-**VRAM to leave free** (in the Loader, in Settings, in the wizard; `engine.vram-reserve-mib`, saved in profiles) is
+**VRAM to leave free** (in the Loader and in the wizard; `engine.vram-reserve-mib`, saved in profiles) is
 the VRAM the engine leaves untouched for the desktop, the browser, the driver and other programs. With the expert
 cache on `auto`, everything else holds experts. Moving the control recomputes, live: the VRAM left for experts, how
 many experts fit (for example "13,066 of 24,576 experts in VRAM (53%)"), the expected expert-cache hit rate, the

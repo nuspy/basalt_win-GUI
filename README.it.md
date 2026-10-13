@@ -53,7 +53,18 @@ inglese, è in fondo a [README.md](README.md#upstream-basalt-readme).
   modello e si apre sul Loader web nella sua finestra (WebView2): app e browser hanno esattamente le stesse
   impostazioni; un'icona vicino all'orologio tiene acceso Basalt Win+GUI quando la finestra è chiusa.
 - **Interfaccia web** (`/`, in inglese o in italiano, vedi [Lingua](#lingua)): Chat, Monitor, Hardware, **Carica
-  modello** (il Loader) e Impostazioni.
+  modello** (il Loader) e Impostazioni. Ogni impostazione sta in una sola scheda:
+  - **Loader**: tutto ciò che si decide al caricamento del modello (il modello, contesto massimo, cache KV, lettura del
+    prompt, drafter MTP e la sua finestra, cache degli esperti, esperti residenti, **VRAM da lasciare libera**, tabella
+    PLE, thread CPU, slot paralleli, immagini, porta), i profili di caricamento e il **profilo predefinito** (★,
+    Machine Default, Valori sicuri: è qui che stanno i valori di caricamento predefiniti), la configurazione guidata,
+    la calibrazione e Carica.
+  - **Impostazioni**: le preferenze dell'app: lingua, cartelle dei modelli, **modello predefinito per il server**, quota
+    di RAM e commit lasciata agli altri programmi, se proporre la configurazione guidata all'avvio. Una riga
+    *Parametri di caricamento* mostra cosa gira adesso (per esempio "256K · q4_0 · spec 7 · 4 GB di VRAM liberi") e il
+    profilo che corrisponde, con **Apri il Loader** per cambiarlo.
+  - **Chat → Impostazioni** (il pannello della chat): i valori di inferenza (campionamento, ragionamento, contesto
+    pieno, output strutturato) e i loro preset. **Monitor** e **Hardware** mostrano soltanto.
   - Il Loader modifica ogni impostazione del motore, mostra VRAM, RAM e commit che il piano richiede accanto a quelli
     liberi ora (una quota di RAM e del limite di commit resta sempre libera per gli altri programmi, il 15% se non ne
     scegli un'altra; il file di paging non deve mai crescere) e la velocità prevista; carica il modello, o ricarica il
@@ -168,7 +179,7 @@ accetta `--port N` e `--file FILE` allo stesso modo.
     script dice soltanto cosa farebbe.
 
 **Quale modello parte** con `-browser` / `-server`: il primo impostato fra: `--model`; il modello salvato nel profilo
-di caricamento; il **modello predefinito del server** (scelto nel Loader con **Usa come modello predefinito per il
+di caricamento; il **modello predefinito del server** (scelto in **Impostazioni → Modello predefinito per il
 server**); il modello già nel file di configurazione. Se nessuno è impostato lo script si ferma con codice 1 e dice
 come sceglierne uno. Il controllo della memoria usa lo stesso piano del Loader; un avvio che farebbe crescere il file
 di paging viene rifiutato, come una GPU che il motore non supporta (codice 1).
@@ -215,7 +226,7 @@ configurazione guidata calcola ogni valore da quello che rileva, dice perché, e
    esempio) e tenere la GPU NVIDIA per il calcolo; la GPU può avere anche un monitor **secondario**, acceso o spento.
    La configurazione mostra cosa ha rilevato e chiede di confermarlo o correggerlo.
 2. **Cosa lasciare agli altri programmi**: la quota di RAM e commit (15% proposto, dal 5 al 50%, mai meno di 2 GB;
-   diventa la regola di questo PC per ogni piano) e la VRAM: 0,5 GB per il driver, più 1,5 GB quando la GPU comanda il
+   diventa la regola di questo PC per ogni piano, si cambia poi in **Impostazioni → Memoria e avvio**) e la VRAM: 0,5 GB per il driver, più 1,5 GB quando la GPU comanda il
    monitor principale (o circa 0,4 GB per uno secondario), arrotondati per eccesso a 256 MiB. Quello che gli altri
    programmi usano ora sulla GPU si mostra, non si somma: la cache degli esperti si dimensiona sulla VRAM libera al
    momento del caricamento, che lo lascia a loro.
@@ -245,8 +256,10 @@ valori del modello). Le impostazioni cambiate a mano restano, e il pannello dice
 
 ### Modelli: cartelle, conversione, verifica
 
-La sezione dei modelli del Loader chiede una o più **cartelle dei modelli**, per esempio quella dei tuoi file
-`.basalt` e quella dei download di LM Studio. Ogni `.basalt` e `.gguf` al loro interno viene descritto dalla sola
+**Impostazioni → Cartelle dei modelli** contiene una o più **cartelle dei modelli** (il Loader le chiede la prima
+volta), per esempio quella dei tuoi file `.basalt` e quella dei download di LM Studio; **Impostazioni → Modello
+predefinito per il server** è il modello che gli script e l'app avviano senza `--model`. Il Loader sceglie fra questi
+il modello da caricare. Ogni `.basalt` e `.gguf` al loro interno viene descritto dalla sola
 intestazione e messo in cache; nessuno legge i pesi. Ogni modello ha uno stato:
 
 - **Pronto**: un file `.basalt` che il motore può aprire. **Verifica** controlla lo SHA-256 di ogni sezione in
@@ -268,7 +281,7 @@ resolve [--model FILE] [--profile NOME] | convert --model GGUF [--out DIR]`.
 
 ### VRAM da lasciare libera
 
-**VRAM da lasciare libera** (nel Loader, nelle Impostazioni, nella configurazione guidata; `engine.vram-reserve-mib`,
+**VRAM da lasciare libera** (nel Loader e nella configurazione guidata; `engine.vram-reserve-mib`,
 salvata nei profili) è la VRAM che il motore non tocca, per desktop, browser, driver e altri programmi. Con la cache
 degli esperti su `auto`, tutto il resto contiene esperti. Spostare il controllo ricalcola, dal vivo: la VRAM che resta
 per gli esperti, quanti esperti ci stanno (per esempio «13.066 di 24.576 esperti in VRAM (53%)»), la percentuale
