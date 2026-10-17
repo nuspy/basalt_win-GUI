@@ -666,6 +666,26 @@ bin/basalt serve --config basalt_config.json                     # everything fr
 bin/basalt serve --config basalt_config.json --max-context 32768  # the command line wins
 ```
 
+### Request log: `--request-log`
+
+The **LOGS** tab of the web page shows, for each request of `/v1/chat/completions`, `/v1/responses` and `/v1/messages`:
+what came in (endpoint, client, parameters and the body as received), the reasoning and the answer as they were
+written (every structured try, rejected ones included), each try's outcome and the repair message sent for the next
+one, the times (prompt and cached tokens, prefill, first token, speed, duration), why it ended, a cancel or an error,
+the hardware figures the server already reads while a request runs, and the lines the server and the engine print. It
+is kept in memory only, never written to disk, never sent anywhere, and served with the same protections as the rest of
+the interface (the API key when one is set).
+
+It is on by default. `--request-log off` (`"request_log": false` in the `server` section of the config file) turns it
+off; `--request-log-mib N` (`"request_log_mib": N`, default 32) sets the memory it may use, after which the oldest
+entries are dropped and the page is told how many. `GET /v1/status` reports `request_log: {"enabled", "capacity_chars"}`.
+
+| Endpoint | |
+|---|---|
+| `GET /api/reqlog?after=<id>&max_chars=<n>` | the events with an id above `after`, oldest first: `{"enabled", "epoch", "last", "events": [{"id", "t", "req", "kind", "data", "text"}], "skipped", "dropped": {"events", "chars"}, "capacity_chars", "held_chars"}`. With the log off: `enabled: false` and no events (HTTP 200). `kind` is `request`, `reasoning`, `content`, `attempt`, `repair`, `timing`, `finish`, `cancel`, `error`, `gpu`, `engine` or `server` |
+| `GET /api/reqlog/export?format=text\|jsonl` | the whole log as a downloaded file, `basalt-requests-YYYYmmdd-HHMMSS.log` or `.jsonl` |
+| `POST /api/reqlog/clear` | empties the log, `{"cleared": true}`; JSON from the server's own page only |
+
 ### Concurrent requests: `--parallel N`
 
 `--parallel N` (1..8, also `"parallel"` in the config's `server` section) serves N requests at once in the
