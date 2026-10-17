@@ -462,7 +462,17 @@ once (the context is shared between the slots, see [`--parallel`](#concurrent-re
 **Structured output** (`/v1/chat/completions`): `"response_format": {"type": "json_object"}` or `{"type":
 "json_schema", "json_schema": {"name": ..., "schema": {...}}}`. The answer is checked; when it is not valid JSON, or
 does not match the schema, the request is generated again with the error fed back, up to `structured_retries` times
-(0 to 5, default 2; 0 turns it off).
+(0 to 5, default 2; 0 turns it off). The new try is the same conversation plus one message that says what was wrong and
+where (the error, the JSON path where the text broke, an entry that was written over and over, once, with its count);
+the rejected text itself is never sent back, so a model that looped is not shown its loop again. Only the validated
+answer is held until the check. Reasoning streams as it is written, rejected tries included; a rejected try is
+announced by a chunk with an empty `delta` and `"structured_output": {"attempt": 1, "discarded": true, "reason": "...",
+"retrying": true}`, its answer is never sent, and the final chunk carries the validated answer only, with
+`"structured_output": {"validated": true, "attempts": 2, "discarded": [{"attempt": 1, "reason": "..."}]}` (a
+non-streaming reply returns the last try's reasoning and answer, with the same field). `GET /v1/status` tells it under
+`structured_output`: `content_buffered` and `reasoning_streamed` are true, and `stream_buffered` (kept for older
+clients) means the validated answer is held until the check. `/v1/responses` with a JSON `text.format` streams its
+reasoning too and checks the answer once, without a retry; `/v1/messages` has no structured output.
 
 **Busy and errors.** With `--parallel 1` requests wait their turn in arrival order. While the engine is starting, or
 while a server started by the app is in standby (no model loaded yet), a request gets a 503 that says why: try again

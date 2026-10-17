@@ -482,7 +482,19 @@ agenti lavorino insieme (il contesto si divide fra i posti, vedi
 **Output strutturato** (`/v1/chat/completions`): `"response_format": {"type": "json_object"}` oppure `{"type":
 "json_schema", "json_schema": {"name": ..., "schema": {...}}}`. La risposta viene controllata; se non è JSON valido, o
 non rispetta lo schema, la richiesta si rigenera con l'errore come spiegazione, fino a `structured_retries` volte (da
-0 a 5, predefinito 2; 0 lo spegne).
+0 a 5, predefinito 2; 0 lo spegne). Il nuovo tentativo è la stessa conversazione più un messaggio che dice cosa non
+andava e dove (l'errore, il percorso JSON in cui il testo si è rotto, una voce scritta più volte, una sola volta, col
+suo numero di ripetizioni); il testo rifiutato non viene mai rimandato indietro, così un modello che girava a vuoto non
+rivede il suo giro. Solo la risposta validata resta trattenuta fino al controllo. Il ragionamento scorre mentre viene
+scritto, anche quello dei tentativi rifiutati; un tentativo rifiutato è annunciato da un chunk con `delta` vuoto e
+`"structured_output": {"attempt": 1, "discarded": true, "reason": "...", "retrying": true}`, la sua risposta non viene
+mai inviata, e l'ultimo chunk porta solo la risposta validata, con `"structured_output": {"validated": true,
+"attempts": 2, "discarded": [{"attempt": 1, "reason": "..."}]}` (una risposta senza streaming restituisce
+ragionamento e risposta dell'ultimo tentativo, con lo stesso campo). `GET /v1/status` lo dichiara in
+`structured_output`: `content_buffered` e `reasoning_streamed` sono veri, e `stream_buffered` (lasciato per i client
+vecchi) significa che la risposta validata è trattenuta fino al controllo. `/v1/responses` con un `text.format` JSON
+trasmette anche il ragionamento e controlla la risposta una volta, senza ritentare; `/v1/messages` non ha output
+strutturato.
 
 **Occupato ed errori.** Con `--parallel 1` le richieste aspettano il loro turno in ordine d'arrivo. Mentre il motore
 parte, o mentre un server avviato dall'app è in attesa (nessun modello caricato), una richiesta riceve un 503 che dice
