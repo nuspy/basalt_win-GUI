@@ -698,3 +698,7 @@ Per avere tutto in italiano una volta per tutte:
 ```powershell
 .venv\Scripts\python -m serve.lang set it
 ```
+
+## Licenza
+
+Il codice nuovo e modificato di questo fork è rilasciato sotto la **Basalt Win+GUI Community and Commercial License** (vedi [LICENSE](LICENSE)): uso gratuito per privati e per aziende con fatturato lordo annuo consolidato inferiore a 10 milioni di dollari USD (licenza commerciale enterprise richiesta a partire da $10M). Il codice preesistente upstream (Strata, Basalt originale, ggml) rimane sotto le rispettive licenze MIT (vedi [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES)).

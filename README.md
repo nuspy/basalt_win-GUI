@@ -75,7 +75,7 @@ down and in [docs/WINDOWS.md](docs/WINDOWS.md). The fork includes the upstream B
 - Default port **7232** (the base's examples disagreed with its code); `/api/settings` reads and writes the config file;
   `/api/loader/*`, `/api/wizard/*`, `/api/profiles`, `/api/models/*` and `/api/reqlog*` for the interface.
 - Structured output (`response_format`) tries again with the error fed back (`structured_retries`, default 2); the retry
-  message says what was wrong and where, the rejected text is never sent back, and the reasoning streams while only the
+  message says what was wrong and the one change it needs (a cut-off or repeating answer is never sent back), and the reasoning streams while only the
   validated answer is held. The server's body limit and its refusals reach the client whole.
 
 **6. Scripts, languages and data**
@@ -557,9 +557,12 @@ once (the context is shared between the slots, see [`--parallel`](#concurrent-re
 **Structured output** (`/v1/chat/completions`): `"response_format": {"type": "json_object"}` or `{"type":
 "json_schema", "json_schema": {"name": ..., "schema": {...}}}`. The answer is checked; when it is not valid JSON, or
 does not match the schema, the request is generated again with the error fed back, up to `structured_retries` times
-(0 to 5, default 2; 0 turns it off). The new try is the same conversation plus one message that says what was wrong and
-where (the error, the JSON path where the text broke, an entry that was written over and over, once, with its count);
-the rejected text itself is never sent back, so a model that looped is not shown its loop again. Only the validated
+(0 to 5, default 2; 0 turns it off). The new try is the same conversation plus one user message that starts with the
+error. An answer that was valid JSON (or had one plain syntax fault) and repeated nothing is sent back as the
+assistant's turn, and the message asks for the one change the error names and nothing else; an answer that was cut
+off or wrote an entry over and over is never sent back, so a model that looped is not shown its loop again (the
+message then has the error, the JSON path where the text broke and the repeated entry, once, with its count). No
+message holds a count of characters. Only the validated
 answer is held until the check. Reasoning streams as it is written, rejected tries included; a rejected try is
 announced by a chunk with an empty `delta` and `"structured_output": {"attempt": 1, "discarded": true, "reason": "...",
 "retrying": true}`, its answer is never sent, and the final chunk carries the validated answer only, with
@@ -965,4 +968,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+New and modified code is licensed under the **Basalt Win+GUI Community and Commercial License** (see [LICENSE](LICENSE)), free of charge for individuals and for businesses with annual gross revenue under $10,000,000 USD (enterprise commercial license required at or above $10M). Pre-existing upstream code (Strata, upstream Basalt, ggml) remains under its original MIT license (see [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES)).
