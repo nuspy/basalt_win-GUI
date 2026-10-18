@@ -22,6 +22,81 @@ caricare; una configurazione guidata che trova i valori migliori per ogni PC; i 
 dei modelli che li trova, li verifica e li converte; gli script di avvio e arresto. Il README originale di Basalt, in
 inglese, è in fondo a [README.md](README.md#upstream-basalt-readme).
 
+## Differenze dalla base
+
+Tutto ciò che questo fork cambia, a colpo d'occhio. Il motore, il formato `.basalt`, il convertitore e l'API
+OpenAI/Anthropic sono di Basalt; il resto è aggiunto sopra, e i percorsi di codice per Linux non cambiano. I dettagli di
+ogni punto sono più sotto e in [docs/WINDOWS.md](docs/WINDOWS.md). Il fork include Basalt originale fino al 17/10/2026.
+
+**1. Supporto a Windows 10/11 (il motore lì non girava)**
+- Build con MSVC 14.44 + CUDA 13.1 per sm_120, con protezioni contro variabili d'ambiente che cambiano la build in modo
+  silenzioso.
+- Un livello di piattaforma per Windows: memoria e **budget che tengono conto del commit** (Windows addebita al commit
+  ogni allocazione, VRAM compresa), `VirtualLock`, arene bloccate dimensionate sul budget di memoria condivisa del WDDM,
+  mappature, letture posizionali, parallele e **non bufferizzate** con una I/O completion port, una sola chiamata a
+  `PrefetchVirtualMemory` per un gruppo di esperti mappati.
+- Il pool di CPU segue la topologia di Windows (`GetLogicalProcessorInformationEx`), con i **core prestazionali per
+  primi** sui processori ibridi, e rimette poi a posto il CPU Set dell'host.
+- `basalt serve` gira in un **job object con chiusura automatica**; letture di NVML, CPU e RAM su Windows; niente
+  `SO_REUSEADDR` (un secondo server su una porta usata fallisce invece di condividerla); `--no-pdl` (programmatic
+  dependent launch spento a runtime); una correzione per le copie su stream legacy che gli stream non bloccanti
+  potevano leggere troppo presto sul WDDM.
+- L'encoder CPU delle immagini si compila con MSVC; la suite di test si compila e gira su Windows (91 test C++ su 92
+  passano; l'altro richiede una CPU con AVX-512).
+
+**2. Un'interfaccia grafica avanzata (la base aveva solo le pagine Monitor e Hardware)**
+- **Basalt Win+GUI** (`BasaltWinGUI.exe`): un'app desktop (finestra WebView2, icona nell'area di notifica, istanza
+  unica) che avvia il server e apre l'interfaccia web; la stessa interfaccia funziona in qualunque browser, in inglese o
+  italiano, anche sul telefono.
+- **Chat** con i valori di campionamento del modello, preset, un indicatore del contesto e politiche di contesto
+  (fermarsi, scorrere o far compattare al modello), output strutturato; **Impostazioni** per le preferenze dell'app,
+  accanto a Monitor e Hardware della base.
+- **Loader**: ogni parametro di caricamento in un posto solo, con un **piano di memoria** (VRAM, RAM e commit necessari
+  contro quelli liberi ora), una **previsione di velocità**, la calibrazione, i profili di caricamento, e il caricamento
+  o la ricarica del motore dentro il server in esecuzione. **Configurazione guidata** e **Machine Default**: i valori
+  migliori per questo PC, salvati come profilo.
+- **LOGS**: ogni richiesta come l'ha vista il modello (cosa è arrivato, il ragionamento e la risposta come scritti,
+  ogni tentativo strutturato, i tempi, perché è finita) più le righe del server e del motore, tenute in memoria ed
+  esportabili.
+- **Scarica modelli**: un catalogo di 23 file scaricabili di Qwen3.8-Flash-Next (`.basalt` pronti, GGUF da convertire,
+  versioni uncensored; altri 6 sono mostrati come non compatibili), con ciò che li distingue dalla base, quanto sono vicini al modello pieno e la fonte di quella misura),
+  scaricati con ripresa e controllo SHA-256.
+
+**3. Gestione di memoria e caricamenti**
+- Piani di memoria per VRAM, RAM e commit che contano anche le copie in RAM degli slot prestati del percorso del
+  prompt; la RAM e il commit **misurati** a ogni caricamento reale sono conservati per modello e aggiunti ai piani
+  successivi.
+- La **riserva di VRAM** dipende da quale monitor pilota la GPU; il minimo di 256 MiB del motore è imposto ovunque;
+  i «Valori sicuri» sono **calcolati da questo PC e dal modello** invece che fissi.
+- `--listen-first` (la pagina risponde mentre il modello si carica), `--standby` (niente caricato finché non si preme
+  Load nel Loader), `--relaunch-on-model-change` (caricare un altro modello riavvia il server con quello); una ricarica
+  rilegge i campionamenti di default e rifiuta un valore errato prima di fermare il motore in esecuzione.
+- Un primo avvio che fallisce dice il motivo del motore; un proiettore di visione che il motore rifiuterebbe spegne
+  l'input di immagini, con il motivo.
+
+**4. Modelli**
+- Una **libreria di modelli** in una o più cartelle: una scansione delle sole intestazioni segna ogni modello Pronto, Da
+  convertire o Non compatibile con il motivo; **conversione e verifica** in background (prima si controllano disco e
+  commit).
+- Un `.basalt` può ricevere un vero **profilo degli esperti senza riconvertirlo**, e il Loader dice quando ha solo
+  l'ordine di riempimento semplice. `/v1/models` elenca i file pronti delle cartelle.
+
+**5. Server e API**
+- Porta predefinita **7232** (gli esempi della base non concordavano con il suo codice); `/api/settings` legge e scrive
+  il file di configurazione; `/api/loader/*`, `/api/wizard/*`, `/api/profiles`, `/api/models/*` e `/api/reqlog*` per
+  l'interfaccia.
+- L'output strutturato (`response_format`) riprova con l'errore rimandato indietro (`structured_retries`, default 2); il
+  messaggio del tentativo dice cosa non andava e dove, il testo rifiutato non viene mai rimandato e il ragionamento scorre
+  mentre solo la risposta validata è trattenuta. Il limite del corpo delle richieste e i rifiuti del server arrivano
+  interi al client.
+
+**6. Script, lingue e dati**
+- `Avvia-Basalt.ps1` / `Ferma-Basalt.ps1`: `-gui` (predefinito), `-browser`, `-server` per gli agenti, con gli stessi nomi
+  di opzione di Strata; si collegano a un server in esecuzione e controllano la memoria con il piano del Loader prima di
+  caricare.
+- Inglese di default, italiano su richiesta, nell'app, nella pagina, negli script e negli strumenti a riga di comando; le
+  impostazioni stanno nella cartella dati dell'utente, separate dalle cache.
+
 ## Come funziona
 
 - **Un modello.** Basalt esegue Qwen3.8-Flash-Next (architettura GGUF `qwen4exp`): 48 strati, 512 esperti per strato,
