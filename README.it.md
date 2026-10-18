@@ -279,6 +279,40 @@ intestazione e messo in cache; nessuno legge i pesi. Ogni modello ha uno stato:
 Lo stesso da un terminale: `python -m serve.models list | json | dirs | set-dirs DIR ... | default --set FILE |
 resolve [--model FILE] [--profile NOME] | convert --model GGUF [--out DIR]`.
 
+### Download dei modelli
+
+Il pannello **Scarica modelli** del Loader offre Qwen3.8-Flash-Next nelle versioni che girano su Basalt: 23 file da
+Hugging Face (e altri 6 mostrati come non compatibili, con il motivo). Ogni scheda dice che cos'è il file e in cosa
+differisce dal modello base, la dimensione, la quantizzazione e quanto è vicino al modello pieno con la **fonte di
+quella misura** (la misura di Basalt contro Q8_0, quella degli autori, quella di Strata o nessuna: i riferimenti
+sono diversi e non vanno mescolati). Il selettore dei modelli mostra lo stesso suggerimento di una riga per un modello
+che conosce.
+
+- **File `.basalt` pronti** (nessuna conversione; `jesdga/Qwen3.8-Flash-Next-Basalt`: Q2_0, IQ3_XXS, IQ3_S,
+  UD-Q4_K_XL, Q8_0; e un uncensored di terzi) si caricano appena il download finisce.
+- **Insiemi GGUF** (ISTA-DASLab GSQ-RCO IQ2_XS e il Coder, Swift 1.5, Unsloth UD, gli uncensored di SC117 e di
+  OrcaRouter) si scaricano con il proiettore di visione e poi compaiono come **Da convertire**; la conversione è
+  quella descritta sopra, con la sua conferma. La cartella dei GGUF si può poi cancellare.
+- Le versioni **uncensored** sono segnalate e portano l'avviso dell'autore. Il repository di OrcaRouter è **ad accesso
+  controllato**: il pannello spiega come avere un account Hugging Face, accettare i termini e creare un token di sola
+  lettura, e prende il token solo per la sessione (si leggono anche `HF_TOKEN` e il file scritto da
+  `huggingface-cli login`). Basalt non salva, non mostra e non registra mai un token, e lo invia solo a Hugging Face,
+  mai lungo un redirect verso un altro host.
+- **Un download parte solo dal suo piano**: i file a una revisione fissata con dimensioni e SHA-256 come li dà
+  Hugging Face, il disco e il suo spazio libero, l'accesso e la licenza da accettare (Qwen Community License 1.0, più
+  la Swift Open License per i file Swift; i repository che si dichiarano Apache-2.0 sono trattati con la licenza del
+  modello base). I file sono scritti come `.part` e rinominati solo quando lo SHA-256 corrisponde; un download
+  interrotto o fermato riprende da dove si era fermato.
+- **Non offerti**: Unsloth UD-Q5_K_XL, UD-Q6_K_XL e UD-IQ1_S, e gli IQ2_XXS e Q2_K/Q3_K di OrcaRouter, perché i loro
+  formati degli esperti non hanno un kernel in Basalt; e `Qwen3.8-35B-A3B`, che non è un modello Qwen ufficiale ma una
+  distillazione della community in un'altra architettura (Qwen3.6-35B-A3B: 40 strati, dimensione 2048, 256 esperti)
+  che il motore, scritto per le forme di Flash-Next, non può eseguire.
+
+Le voci "Non provato con Basalt" hanno formati degli esperti che gli elenchi del motore accettano ma che non sono mai
+stati eseguiti con Basalt. Il catalogo è stato letto dai repository il 17/10/2026 (`serve/catalog.py`); le dimensioni
+si rileggono quando si prepara un download. Le rotte (solo da questo PC e dalla pagina del server): `GET
+/api/models/catalog | download | hf`, `POST /api/models/download-plan | download | download-cancel | hf-token`.
+
 ### VRAM da lasciare libera
 
 **VRAM da lasciare libera** (nel Loader e nella configurazione guidata; `engine.vram-reserve-mib`,

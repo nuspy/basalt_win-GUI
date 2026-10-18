@@ -267,6 +267,38 @@ nothing reads the weights. Each model gets a status:
 The same is available from a terminal: `python -m serve.models list | json | dirs | set-dirs DIR ... | default --set
 FILE | resolve [--model FILE] [--profile NAME] | convert --model GGUF [--out DIR]`.
 
+### Download models
+
+The **Download models** panel of the Loader offers Qwen3.8-Flash-Next in the versions that run on Basalt: 23 files from
+Hugging Face (and 6 more shown as not compatible, with the reason). Each card says what the file is and how it differs
+from the base model, its size, its quantization, and how close it is to the full model with the **source of that
+figure** (Basalt's own measurement against Q8_0, the authors' own, Strata's or none: the references differ and must not
+be mixed). The model picker shows the same one-line hint for a model it knows.
+
+- **Ready `.basalt` files** (no conversion; `jesdga/Qwen3.8-Flash-Next-Basalt`: Q2_0, IQ3_XXS, IQ3_S, UD-Q4_K_XL, Q8_0;
+  and one uncensored by a third party) load as soon as the download ends.
+- **GGUF sets** (ISTA-DASLab GSQ-RCO IQ2_XS and the Coder, Swift 1.5, Unsloth UD, the uncensored SC117 and OrcaRouter
+  files) are downloaded with their vision projector and then show up as **To convert**; the conversion is the one
+  described above, with its own confirmation. The GGUF folder can be deleted afterwards.
+- **Uncensored** versions are marked and carry the author's warning. OrcaRouter's repository is **gated**: the panel
+  explains how to get a Hugging Face account, accept the terms and make a read token, and takes the token for the
+  session only (`HF_TOKEN` or the file `huggingface-cli login` writes are read too). Basalt never saves, shows or logs
+  a token, and sends it only to Hugging Face, never along a redirect to another host.
+- **A download starts only from its plan**: the files at a pinned revision with their sizes and SHA-256 as Hugging Face
+  reports them, the disk and its free space, the access, and the license to accept (Qwen Community License 1.0, plus
+  the Swift Open License for Swift files; the repositories that tag themselves Apache-2.0 are treated as the base
+  model's license). Files are written as `.part` and renamed only after the SHA-256 matches; an interrupted or stopped
+  download continues from where it stopped.
+- **Not offered**: Unsloth UD-Q5_K_XL, UD-Q6_K_XL and UD-IQ1_S, and OrcaRouter's IQ2_XXS and Q2_K/Q3_K, because their
+  expert formats have no kernel in Basalt; and `Qwen3.8-35B-A3B`, which is not an official Qwen model but a community
+  distillation into another architecture (Qwen3.6-35B-A3B: 40 layers, hidden size 2048, 256 experts) that the engine,
+  written for Flash-Next's shapes, cannot run.
+
+Entries marked "Not tried in Basalt" have expert formats the engine's lists accept but have not been run through Basalt.
+The catalog was read from the repositories on 2026-10-17 (`serve/catalog.py`); sizes are read again when a download is
+planned. The routes (this PC and the server's own page only): `GET /api/models/catalog | download | hf`, `POST
+/api/models/download-plan | download | download-cancel | hf-token`.
+
 ### VRAM to leave free
 
 **VRAM to leave free** (in the Loader and in the wizard; `engine.vram-reserve-mib`, saved in profiles) is
