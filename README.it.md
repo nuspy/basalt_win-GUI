@@ -97,6 +97,18 @@ ogni punto sono più sotto e in [docs/WINDOWS.md](docs/WINDOWS.md). Il fork incl
 - Inglese di default, italiano su richiesta, nell'app, nella pagina, negli script e negli strumenti a riga di comando; le
   impostazioni stanno nella cartella dati dell'utente, separate dalle cache.
 
+**7. Un harness per agenti, un planner e un guscio dell'interfaccia rivisto** (`harness/`, [docs/harness.md](docs/harness.md))
+- Un processo separato (`python -m harness -p "compito"`, oppure come agente di un editor via ACP) che parla con l'API
+  pubblica del server: un ciclo di strumenti con livelli di permesso, modalità piano, hook, checkpoint dei file, registro
+  di audit a catena di hash, sandbox dei comandi, broker dei segreti, contenuti non fidati recintati, mascheramento del
+  contesto, memoria, skill con approvazione per hash, MCP e documenti di riferimento (blocco fisso o ricerca). Le
+  telefonate vere e i pagamenti senza conferma sono protetti e spenti di default.
+- Un **planner** proattivo: piani come grafi con decisioni, riunioni e compiti passati a te, un filtro veloce degli eventi
+  (nel cloud solo con il tuo consenso, nomi sostituiti) e nuova pianificazione col modello locale, in una vista **Piani**.
+- Una **valutazione** (`python -m harness.eval`) che riporta pass^k, costo e uso della cache, e il guscio delle pagine:
+  zoom dell'interfaccia per schermi molto larghi, una tavolozza dei comandi (Ctrl+K), viste con Alt+numero e un indice
+  delle impostazioni.
+
 ## Come funziona
 
 - **Un modello.** Basalt esegue Qwen3.8-Flash-Next (architettura GGUF `qwen4exp`): 48 strati, 512 esperti per strato,

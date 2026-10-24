@@ -84,6 +84,16 @@ down and in [docs/WINDOWS.md](docs/WINDOWS.md). The fork includes the upstream B
 - English by default, Italian on request, in the app, the page, the scripts and the command-line tools; settings live in
   the user data folder, apart from the caches.
 
+**7. An agent harness, a planner and a revised interface shell** (`harness/`, [docs/harness.md](docs/harness.md))
+- A separate process (`python -m harness -p "task"`, or as an editor's agent over ACP) that talks to the server's public
+  API: a tool loop with permission levels, a plan mode, hooks, file checkpoints, a hash-chained audit log, a command
+  sandbox, a secrets broker, fenced untrusted content, context masking, memory, skills with approval by hash, MCP and
+  reference documents (fixed block or search). Real phone calls and payments without confirmation are gated and off by default.
+- A proactive **planner**: plans as graphs with decisions, merges and tasks handed to you, a fast event filter (cloud only
+  with your consent, names replaced) and re-planning by the local model, shown in a **Plans** view.
+- An **evaluation** (`python -m harness.eval`) that reports pass^k, cost and cache use, and the pages' shell: interface zoom
+  for very wide screens, a command palette (Ctrl+K), Alt+number views and a settings index.
+
 ## How it works
 
 - **One model.** Basalt runs Qwen3.8-Flash-Next (GGUF architecture `qwen4exp`): 48 layers, 512 routed experts per
