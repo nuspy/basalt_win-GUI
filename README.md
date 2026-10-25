@@ -95,6 +95,10 @@ down and in [docs/WINDOWS.md](docs/WINDOWS.md). The fork includes the upstream B
   with your consent, names replaced) and re-planning by the local model, shown in a **Plans** view.
 - An **evaluation** (`python -m harness.eval`) that reports pass^k, cost and cache use, and the pages' shell: interface zoom
   for very wide screens, a command palette (Ctrl+K), Alt+number views and a settings index.
+- In the Chat: **Shift+Tab** changes the mode, shown in a label by *New conversation*; a message that starts with `/` is a command
+  (30 of them, skills included); the thinking level belongs to the conversation; and the **memory** now really keeps notes between
+  conversations, with its effects and limits written out. All of it is in [The agent harness](#the-agent-harness) and in the
+  [manual](docs/harness-manual.md).
 
 ## How it works
 
@@ -182,6 +186,138 @@ down and in [docs/WINDOWS.md](docs/WINDOWS.md). The fork includes the upstream B
   answer = reuse).
 - **English by default**, Italian on request, for the app, the page, the scripts and the command-line tools.
 - **Conversion and verification** from the model library (GGUF → `.basalt`, SHA-256 check), in the background.
+
+## The agent harness
+
+The **harness** (`harness/`) is an agent that works on your files with the model loaded in Basalt. It reads and edits a project,
+runs commands, searches the web, fills in forms, keeps notes about what it learns, and asks you before anything it cannot undo.
+It is a separate Python process: it talks to the running server through the public OpenAI-compatible API and imports nothing from
+the engine, so it needs no GPU of its own. What it keeps (conversations, memory, audit log, checkpoints, approvals) lives in the user
+data folder, never in your repository; the only thing it writes in the project is `.basalt/artifacts`, the full text of outputs it
+had to shorten.
+
+The reference is [docs/harness.md](docs/harness.md); a step-by-step guide is [docs/harness-manual.md](docs/harness-manual.md).
+
+### Four ways in
+
+All four build the agent in the same place (`harness/stack.py`), so what one can reach the others can reach.
+
+| Way in | What it is |
+|---|---|
+| **Chat** tab | Conversations with the agent. Each is a long-lived process with its own saved history, so a message does not pay for the start. This is the main way. |
+| **Agent** tab | One run at a time: a folder, a task, a mode, a readable log, and *Go back* to a checkpoint. |
+| `python -m harness -p "task"` or `basalt-agent` | The command line, for scripts: exit codes, `--json`, budgets. `basalt-agent.cmd` works from any folder. |
+| `python -m harness acp` | The agent of an editor that speaks the Agent Client Protocol, over stdio. |
+
+### What it can do
+
+- **Work on a project**: read, list, search, edit and write files; run shell commands; `repo_map` (the definitions of each source file,
+  most relevant first); language-server diagnostics and go-to-definition when a server is installed; run Python, JavaScript or
+  TypeScript snippets; hand a task to a subagent. Files you attach (text, code, CSV, JSON, Word, Excel, PowerPoint, PDF, images; audio
+  and video through the callAPIcall service) are read in pieces, and files the agent makes are checked before they are offered to you.
+- **Use the web**: `search_web` (DuckDuckGo unless you set another engine; no key, and the words of each search go to DuckDuckGo) and
+  `browse_url` (a page as lines of text, private addresses refused). With the browser tools it drives Edge or Chrome for forms,
+  bookings and purchases.
+- **Keep what it learns**: a memory of notes per project (below), `AGENTS.md` rules read from the folder up, skills, and reference
+  documents offered as a fixed block or searched.
+- **Reach other tools**: skills, plugins and MCP servers found on this PC (each one *to approve* until you read and approve it, tied to
+  a hash of what you read); a search for a missing one online, with the best candidates put to you and an install that never runs a
+  package's scripts; remote MCP servers with OAuth sign-in; other agents through an ACP client and an A2A client; a council of
+  advisers for hard questions; a different model for each function (the loaded one, another on this PC, a cloud service).
+- **Handle money and identity**: the **Wallet** vault keeps cards, personal data and logins encrypted; the model writes placeholders and
+  the value is put in at the last step, only toward the sites the entry names. Payments follow a limit you set (nothing until you set
+  one), an optional waiver with caps, and a question above them. The second factor of each login is your choice. Real phone calls ask
+  every time and are off by default.
+- **Plan**: plans as graphs (actions, sensors, decisions, merges, tasks handed to you) shown in the **Plans** view; the Chat can read
+  and propose changes to them, and every change has your yes. An event filter and re-planning by the local model are optional.
+- **Run on its own schedule**: routines (a prompt, a folder, a schedule, a mode), evaluation (`python -m harness.eval`, pass^k, cost
+  and cache use), replay of a recorded session, and the energy a task used.
+
+### The Chat's conversations
+
+- **Mode, with a label**: *Plan only*, *Read only*, *Ask first* or *Automatic*. A label by *New conversation* says which is on
+  (*Shift + TAB to change mode: actual …*); **Shift+Tab** in the message box goes to the next, with a conversation open it changes that
+  one only, and *Automatic* asks the two confirmations of the risk dialog.
+- **Thinking level** per conversation (the *Thinking* list, or `/effort`).
+- **Slash commands**: typing `/` opens a menu of 30: on the page (`/clear`, `/mode`, `/plan`, `/copy`, `/export`, `/branch`, `/rewind`,
+  `/stop`, `/diff`…), answered by the conversation's process (`/status`, `/context`, `/compact`, `/tools`, `/hooks`, `/mcp`,
+  `/memory`, `/permissions`), requests worded for the model (`/init`, `/review`, `/security-review`, `/research`), and every skill found
+  on the PC as `/name text`.
+- **A message while it works** is steered into the task, queued, or treated as urgent; **Stop** means stop.
+- **Branches, going back, comparing**: a tree of conversations, *Back to here* on any request (actions that stay done are listed
+  first), and two continuations of one request side by side.
+- **A copy of its own**: in a git folder a conversation can work in its own worktree, and you apply the changes you choose as staged
+  changes, never a commit.
+- **Failures are handled, not hidden**: a busy or unreachable server is retried; a process that dies is started again from its history;
+  a tool that cannot be undone is never run again by a restart; after that the conversation is *blocked* and waits for you.
+
+### What you control
+
+- **What it may do without asking**: the four modes; command rules (`shell_command:pytest*`, a deny always wins, and a rule never
+  covers a command that chains or redirects); the *Always allow* button in a question. In *Automatic*, an irreversible action still asks
+  once the conversation has read outside content and can reach a secret or a vault entry (the Rule of Two).
+- **Hooks you write** (`hooks.json`): commands or fixed blocks on tool calls, turns and the session; a hook that cannot decide blocks.
+- **Checkpoints and rewind**: the workspace is saved before the first change of a turn, outside the project and within size limits;
+  `python -m harness.rewind` and the *Go back* button restore it. Rewinding does not undo a command it ran, and says so.
+- **An audit log**: one record per tool call (arguments hashed and masked, the decision, the outcome), in a hash chain you can verify.
+- **Time limits and Stop**: every tool has a time limit (15 minutes unless set); Stop ends a running command and everything it started.
+- **What it is not**: an operating-system sandbox. A command runs with your rights, with a scrubbed environment, no stdin, a time limit,
+  capped output and, on Windows, a job object. Use *Automatic* only in a folder you can lose.
+
+### Memory: what was wrong, what it does now
+
+The memory is a notebook the agent keeps per project and reads in later conversations. The first version of it did not work in practice.
+
+**What was wrong.** The harness searched the notebook at every message, but nothing ever wrote to it, so it always searched an empty
+database. The notes it would have found went into the system message, which changes the start of the prompt and makes the server
+re-read the conversation. And the search broke identifiers such as `sm_120` into pieces and wanted every word of your message to be in
+the note.
+
+**What it does now.**
+- The model has three tools. `remember` keeps a short note (at most 2,000 characters, with a category; the same text is kept once;
+  at most 5,000 notes per project), `recall` searches the notes and `forget` deletes one by its id. The tool descriptions say what they
+  are for; the system prompt does not mention them.
+- At every message you write, the harness searches the notes with your words and, if any match, adds up to four of them **after your
+  message** as data, marked untrusted. The system block is never touched, so the server keeps the cached start of the conversation.
+  This is the Chat setting *Injection → Retrieval at the end* (the default). With *Fixed prefix* or *On request* nothing is added by
+  itself and the model has to call `recall`.
+- The search is full-text (SQLite FTS5): identifiers are kept whole, a question whose words are not all in a note still finds it
+  (first every word, then any word), best match first.
+- One file per project folder, in the user data folder: `memory\<16 hex digits>.db`. `/memory` lists the latest ten notes (or
+  searches, `/memory words`), and `/status` counts them. `--no-memory` on the command line removes the three tools and the retrieval.
+
+**Effects.**
+- A later conversation in the same folder knows the decisions, conventions and facts the agent chose to keep, without reading the
+  whole project again, and the cached start of the conversation is not disturbed when a note is added.
+- It costs tokens at the end of the context: up to four notes, each up to 2,000 characters, on every message that matches.
+- *Ask first* and *Automatic* let the agent write and delete notes without asking. *Read only* asks before it writes one. *Plan only*
+  refuses `remember` and `forget` and allows `recall`.
+- What `recall` returns is outside content: it counts toward the Rule of Two and no quotation taken from it can confirm a change to
+  a plan. Notes added at the end by the retrieval are fenced the same way and also stop a quotation from confirming a plan change.
+
+**Limits.**
+- **A note is kept only if the model decides to keep it.** There is no automatic extraction, and a small model may seldom call `remember`.
+  Ask it to ("remember that …").
+- **The memory belongs to one folder path** (the full path, case ignored). Another folder, a renamed or moved folder, or a conversation
+  that works in its own copy of a git folder has a different memory: notes made in a copy stay in the copy's file, and the file of a
+  discarded copy stays behind. This follows from how the file is named; it was read in the code, not measured. The **Chat** tab sends
+  no folder, so all its conversations work in `chat-workspace` inside the user data folder and share one memory; the Agent tab, the
+  command line and the editor use the folder you name, each with its own.
+- **Keyword search only.** There is no stemming and no embeddings: "built" does not find a note that says "build". Because the search
+  falls back to any word, a note that shares one word with your message can come back although it is not about it.
+- **Notes are stored as written, in plain text, not encrypted and not masked.** Do not ask the agent to remember a password or a key.
+- **A wrong or hostile note stays.** The agent can be talked into keeping a note by a page it read, and `remember` is a reversible
+  action that asks nobody in *Ask first* or *Automatic*. It comes back later as data the model is told not to obey, which lowers the
+  risk and does not remove it. The notes added at the end by the retrieval do not set the Rule of Two flag the way `recall` does.
+- **No page to browse or edit the notes.** `/memory` reads them (each cut at 300 characters); to remove one, ask the agent to forget
+  it, or delete the file. Nothing is shared between folders, users or PCs, and there is no export.
+
+### What is not done
+
+File and network isolation for commands (the job object limits resources only); `fs/*` and `session/load` in ACP; Basalt as an A2A
+server (it is a client only); bank accounts through an aggregator; a test of Google Pay or an embedded Stripe form on a real site;
+and a measure of which context strategy works best (it needs the real model). No real phone call was placed in a test, and Stripe and
+Google Pay were not tried against the live services. The list with the reasons is at the end of [docs/harness.md](docs/harness.md).
 
 ## Requirements
 

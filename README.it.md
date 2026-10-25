@@ -110,6 +110,10 @@ ogni punto sono più sotto e in [docs/WINDOWS.md](docs/WINDOWS.md). Il fork incl
 - Una **valutazione** (`python -m harness.eval`) che riporta pass^k, costo e uso della cache, e il guscio delle pagine:
   zoom dell'interfaccia per schermi molto larghi, una tavolozza dei comandi (Ctrl+K), viste con Alt+numero e un indice
   delle impostazioni.
+- Nella Chat: **Maiusc+Tab** cambia la modalità, mostrata in un'etichetta accanto a *Nuova conversazione*; un messaggio che inizia
+  con `/` è un comando (30, skill comprese); il livello di ragionamento appartiene alla conversazione; e la **memoria** adesso
+  conserva davvero gli appunti tra una conversazione e l'altra, con effetti e limiti scritti per esteso. Tutto è in
+  [L'harness per agenti](#lharness-per-agenti) e nel [manuale](docs/harness-manual.it.md).
 
 ## Come funziona
 
@@ -201,6 +205,156 @@ ogni punto sono più sotto e in [docs/WINDOWS.md](docs/WINDOWS.md). Il fork incl
   si riusa).
 - **Inglese come lingua predefinita**, italiano a richiesta, per app, pagina, script e strumenti da riga di comando.
 - **Conversione e verifica** dalla libreria dei modelli (GGUF → `.basalt`, controllo SHA-256), in sottofondo.
+
+## L'harness per agenti
+
+L'**harness** (`harness/`) è un agente che lavora sui tuoi file con il modello caricato in Basalt. Legge e modifica un progetto,
+esegue comandi, cerca sul web, compila moduli, tiene appunti su ciò che impara e ti chiede prima di tutto ciò che non si può
+disfare. È un processo Python separato: parla col server in esecuzione tramite l'API pubblica compatibile OpenAI e non importa nulla
+dal motore, quindi non ha bisogno di una GPU sua. Ciò che conserva (conversazioni, memoria, registro di audit, checkpoint,
+approvazioni) sta nella cartella dati dell'utente, mai nel tuo repository; l'unica cosa che scrive nel progetto è
+`.basalt/artifacts`, il testo completo degli output che ha dovuto accorciare.
+
+Il riferimento è [docs/harness.md](docs/harness.md) (in inglese); una guida passo passo è
+[docs/harness-manual.it.md](docs/harness-manual.it.md).
+
+### Quattro modi di usarlo
+
+Tutti e quattro costruiscono l'agente nello stesso punto (`harness/stack.py`): ciò che uno raggiunge, lo raggiungono anche gli altri.
+
+| Modo | Cos'è |
+|---|---|
+| Scheda **Chat** | Conversazioni con l'agente. Ognuna è un processo che resta vivo, con la sua cronologia salvata, quindi un messaggio non paga l'avvio. È il modo principale. |
+| Scheda **Agente** | Un'esecuzione alla volta: una cartella, un compito, una modalità, un registro leggibile e *Torna indietro* a un checkpoint. |
+| `python -m harness -p "compito"` o `basalt-agent` | La riga di comando, per gli script: codici di uscita, `--json`, limiti. `basalt-agent.cmd` funziona da qualunque cartella. |
+| `python -m harness acp` | L'agente di un editor che parla l'Agent Client Protocol, su stdio. |
+
+### Cosa sa fare
+
+- **Lavorare su un progetto**: leggere, elencare, cercare, modificare e scrivere file; eseguire comandi di shell; `repo_map` (le
+  definizioni di ogni file sorgente, i più rilevanti per primi); diagnostica e «vai alla definizione» dei language server quando ce n'è
+  uno installato; eseguire frammenti di Python, JavaScript o TypeScript; affidare un compito a un sotto-agente. I file che alleghi
+  (testo, codice, CSV, JSON, Word, Excel, PowerPoint, PDF, immagini; audio e video tramite il servizio callAPIcall) sono letti a
+  pezzi, e i file che l'agente produce sono controllati prima di esserti offerti.
+- **Usare il web**: `search_web` (DuckDuckGo, salvo un altro motore che imposti; senza chiave, e le parole di ogni ricerca vanno a
+  DuckDuckGo) e `browse_url` (una pagina come righe di testo, indirizzi privati rifiutati). Con gli strumenti del browser guida Edge o
+  Chrome per moduli, prenotazioni e acquisti.
+- **Tenere ciò che impara**: una memoria di appunti per progetto (sotto), le regole di `AGENTS.md` lette dalla cartella verso l'alto, le
+  skill e i documenti di riferimento offerti come blocco fisso o cercati.
+- **Raggiungere altri strumenti**: skill, plugin e server MCP trovati su questo PC (ognuno *da approvare* finché non lo leggi e lo
+  approvi, legato a un hash di ciò che hai letto); la ricerca online di quello che manca, con i candidati migliori proposti a te e
+  un'installazione che non esegue mai gli script di un pacchetto; server MCP remoti con accesso OAuth; altri agenti tramite un client
+  ACP e un client A2A; un consiglio di consiglieri per le domande difficili; un modello diverso per ogni funzione (quello caricato,
+  un altro su questo PC, un servizio cloud).
+- **Gestire denaro e identità**: il vault del **Portafoglio** tiene cifrati carte, dati personali e accessi; il modello scrive
+  segnaposto e il valore viene inserito all'ultimo passo, solo verso i siti che la voce indica. I pagamenti seguono un limite che
+  imposti tu (nessuno finché non lo imposti), una rinuncia facoltativa con massimali e una domanda oltre questi. Il secondo fattore di
+  ogni accesso lo scegli tu. Le telefonate vere chiedono ogni volta e sono spente di default.
+- **Pianificare**: piani come grafi (azioni, sensori, decisioni, riunioni, compiti passati a te) mostrati nella vista **Piani**; la
+  Chat può leggerli e proporre modifiche, e ogni modifica ha il tuo sì. Un filtro degli eventi e la ripianificazione col modello locale
+  sono facoltativi.
+- **Lavorare con orari propri**: routine (un prompt, una cartella, un orario, una modalità), valutazione (`python -m harness.eval`,
+  pass^k, costo e uso della cache), riesecuzione di una sessione registrata e l'energia usata da un compito.
+
+### Le conversazioni della Chat
+
+- **Modalità, con un'etichetta**: *Solo un piano*, *Sola lettura*, *Chiedi prima* o *Automatico*. Un'etichetta accanto a *Nuova
+  conversazione* dice quale è attiva (*Maiusc + TAB per cambiare modalità: attuale …*); **Maiusc+Tab** nel campo del messaggio passa
+  alla successiva, con una conversazione aperta cambia solo quella, e *Automatico* chiede le due conferme della finestra di rischio.
+- **Livello di ragionamento** per conversazione (l'elenco *Ragionamento*, oppure `/effort`).
+- **Comandi con la barra**: scrivendo `/` si apre un menu di 30: sulla pagina (`/clear`, `/mode`, `/plan`, `/copy`, `/export`,
+  `/branch`, `/rewind`, `/stop`, `/diff`…), risposti dal processo della conversazione (`/status`, `/context`, `/compact`, `/tools`,
+  `/hooks`, `/mcp`, `/memory`, `/permissions`), richieste scritte per il modello (`/init`, `/review`, `/security-review`,
+  `/research`) e ogni skill trovata sul PC come `/nome testo`.
+- **Un messaggio mentre lavora** viene indirizzato nel compito, messo in coda o trattato come urgente; **Ferma** vuol dire ferma.
+- **Rami, tornare indietro, confrontare**: un albero di conversazioni, *Torna qui* su ogni richiesta (le azioni che restano avvenute
+  sono elencate prima) e due continuazioni della stessa richiesta affiancate.
+- **Una copia tutta sua**: in una cartella git una conversazione può lavorare in un suo worktree, e le modifiche che scegli le
+  applichi come modifiche in staging, mai come commit.
+- **I guasti si gestiscono, non si nascondono**: un server occupato o irraggiungibile si riprova; un processo che muore riparte dalla
+  sua cronologia; uno strumento irreversibile non viene mai rieseguito da un riavvio; dopo di che la conversazione è *bloccata* e
+  aspetta te.
+
+### Cosa controlli tu
+
+- **Cosa può fare senza chiedere**: le quattro modalità; regole per i comandi (`shell_command:pytest*`, un divieto vince sempre, e una
+  regola non copre mai un comando che ne concatena altri o reindirizza); il pulsante *Permetti sempre* in una domanda. In
+  *Automatico*, un'azione irreversibile chiede comunque quando la conversazione ha letto contenuti esterni e può raggiungere un segreto
+  o una voce del vault (la regola dei due).
+- **Hook scritti da te** (`hooks.json`): comandi o blocchi fissi su chiamate di strumenti, turni e sessione; un hook che non riesce a
+  decidere blocca.
+- **Checkpoint e ritorno**: l'area di lavoro viene salvata prima della prima modifica di un turno, fuori dal progetto e con limiti di
+  dimensione; `python -m harness.rewind` e il pulsante *Torna indietro* la ripristinano. Tornare indietro non disfa un comando che ha
+  eseguito, e lo dice.
+- **Un registro di audit**: una riga per ogni chiamata di strumento (argomenti con hash e mascherati, la decisione, l'esito), in una
+  catena di hash verificabile.
+- **Limiti di tempo e Ferma**: ogni strumento ha un limite di tempo (15 minuti salvo diversa impostazione); Ferma termina un comando in
+  corso e tutto ciò che ha avviato.
+- **Cosa non è**: una sandbox del sistema operativo. Un comando gira con i tuoi diritti, con un ambiente ripulito, senza stdin, con un
+  limite di tempo, output limitato e, su Windows, un job object. Usa *Automatico* solo in una cartella che puoi perdere.
+
+### La memoria: cosa non andava, cosa fa adesso
+
+La memoria è un quaderno che l'agente tiene per ogni progetto e rilegge nelle conversazioni successive. La prima versione, in pratica,
+non funzionava.
+
+**Cosa non andava.** L'harness cercava nel quaderno a ogni messaggio, ma nulla ci scriveva mai, quindi cercava sempre in un database
+vuoto. Gli appunti che avrebbe trovato finivano nel messaggio di sistema, che cambia l'inizio del prompt e costringe il server a
+rileggere la conversazione. E la ricerca spezzava gli identificatori come `sm_120` e voleva che ogni parola del messaggio fosse
+nell'appunto.
+
+**Cosa fa adesso.**
+- Il modello ha tre strumenti. `remember` conserva un appunto breve (al massimo 2.000 caratteri, con una categoria; lo stesso testo si
+  tiene una volta sola; al massimo 5.000 appunti per progetto), `recall` cerca negli appunti e `forget` ne cancella uno con il suo id.
+  Le descrizioni degli strumenti dicono a cosa servono; il prompt di sistema non li nomina.
+- A ogni messaggio che scrivi, l'harness cerca negli appunti con le tue parole e, se qualcuno corrisponde, ne aggiunge fino a quattro
+  **dopo il tuo messaggio** come dati, segnati come non fidati. Il blocco di sistema non si tocca mai, quindi il server conserva
+  l'inizio della conversazione nella cache. È l'impostazione della Chat *Iniezione → Recupero in coda* (quella predefinita). Con
+  *Prefisso fisso* o *Su richiesta* non si aggiunge nulla da solo e il modello deve chiamare `recall`.
+- La ricerca è a testo intero (SQLite FTS5): gli identificatori restano interi, una domanda le cui parole non stanno tutte in un
+  appunto lo trova lo stesso (prima ogni parola, poi una qualunque), il migliore per primo.
+- Un file per ogni cartella di progetto, nella cartella dati dell'utente: `memory\<16 cifre esadecimali>.db`. `/memory` elenca gli
+  ultimi dieci appunti (o cerca, `/memory parole`) e `/status` li conta. `--no-memory` sulla riga di comando toglie i tre strumenti e il
+  recupero.
+
+**Effetti.**
+- Una conversazione successiva nella stessa cartella conosce le decisioni, le convenzioni e i fatti che l'agente ha scelto di
+  conservare, senza rileggere tutto il progetto, e l'inizio in cache della conversazione non si disturba quando si aggiunge un appunto.
+- Costa token in fondo al contesto: fino a quattro appunti, ciascuno fino a 2.000 caratteri, a ogni messaggio che corrisponde.
+- *Chiedi prima* e *Automatico* lasciano che l'agente scriva e cancelli appunti senza chiedere. *Sola lettura* chiede prima di
+  scriverne uno. *Solo un piano* rifiuta `remember` e `forget` e permette `recall`.
+- Ciò che restituisce `recall` è contenuto esterno: conta per la regola dei due e nessuna citazione presa da lì può confermare una
+  modifica a un piano. Gli appunti aggiunti in coda dal recupero sono recintati allo stesso modo e impediscono anch'essi che una
+  citazione confermi una modifica a un piano.
+
+**Limiti.**
+- **Un appunto resta solo se il modello decide di tenerlo.** Non c'è estrazione automatica, e un modello piccolo può chiamare
+  `remember` di rado. Chiediglielo tu («ricorda che …»).
+- **La memoria appartiene al percorso di una cartella** (il percorso completo, maiuscole ignorate). Un'altra cartella, una cartella
+  rinominata o spostata, o una conversazione che lavora nella sua copia di una cartella git hanno una memoria diversa: gli appunti
+  scritti in una copia restano nel file della copia, e il file di una copia scartata resta lì. Dipende da come si chiama il file; l'ho
+  letto nel codice, non l'ho misurato. La scheda **Chat** non manda nessuna cartella, quindi tutte le sue conversazioni lavorano in
+  `chat-workspace` dentro la cartella dati dell'utente e condividono una sola memoria; la scheda Agente, la riga di comando e l'editor
+  usano la cartella che indichi, ciascuna con la sua.
+- **Solo ricerca per parole.** Non c'è radice delle parole né embedding: «costruito» non trova un appunto che dice «costruire». Poiché
+  la ricerca ripiega su una parola qualunque, un appunto che condivide una sola parola con il tuo messaggio può tornare anche se non
+  c'entra.
+- **Gli appunti sono conservati come scritti, in chiaro, non cifrati e non mascherati.** Non chiedere all'agente di ricordare una
+  password o una chiave.
+- **Un appunto sbagliato o ostile resta.** L'agente può essere indotto a tenere un appunto da una pagina che ha letto, e `remember` è
+  un'azione reversibile che non chiede a nessuno in *Chiedi prima* o *Automatico*. Torna poi come dato che il modello ha l'ordine di
+  non eseguire: il rischio si abbassa, non scompare. Gli appunti aggiunti in coda dal recupero non alzano il segnale della regola dei
+  due come fa `recall`.
+- **Nessuna pagina per sfogliare o modificare gli appunti.** `/memory` li legge (ciascuno tagliato a 300 caratteri); per toglierne uno
+  chiedi all'agente di dimenticarlo, oppure cancella il file. Nulla è condiviso tra cartelle, utenti o PC, e non c'è esportazione.
+
+### Cosa non è fatto
+
+Isolamento di file e rete per i comandi (il job object limita solo le risorse); `fs/*` e `session/load` in ACP; Basalt come server A2A
+(è solo un client); i conti bancari tramite un aggregatore; una prova di Google Pay o di un modulo Stripe incorporato su un sito vero;
+e una misura di quale strategia di contesto funzioni meglio (serve il modello vero). Nessuna telefonata vera è stata fatta in un test,
+e Stripe e Google Pay non sono stati provati sui servizi reali. L'elenco con i motivi è in fondo a
+[docs/harness.md](docs/harness.md).
 
 ## Requisiti
 
