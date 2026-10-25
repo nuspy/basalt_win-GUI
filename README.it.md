@@ -102,7 +102,7 @@ ogni punto sono più sotto e in [docs/WINDOWS.md](docs/WINDOWS.md). Il fork incl
   pubblica del server: un ciclo di strumenti con livelli di permesso, modalità piano, hook, checkpoint dei file, registro
   di audit a catena di hash, sandbox dei comandi, broker dei segreti, contenuti non fidati recintati, mascheramento del
   contesto, memoria, skill con approvazione per hash, MCP e documenti di riferimento (blocco fisso o ricerca). Un **vault**
-  tiene cifrati carte, dati personali e accessi e il modello non vede mai un valore; l'agente può guidare un browser per compilare
+  tiene cifrati carte, dati personali e accessi e il modello scrive solo segnaposto che vengono riempiti all'ultimo passo (l'agente gira come il tuo stesso utente: cosa protegge e cosa no sta in `docs/harness.md`); l'agente può guidare un browser per compilare
   moduli e prenotare, e può pagare entro i limiti che imposti nella vista **Portafoglio** (automatico fino ai massimali che scegli,
   una domanda oltre); il secondo fattore di un accesso lo scegli tu. Le telefonate vere sono protette e spente di default.
 - Un **planner** proattivo: piani come grafi con decisioni, riunioni e compiti passati a te, un filtro veloce degli eventi
