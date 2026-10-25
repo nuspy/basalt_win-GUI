@@ -88,7 +88,9 @@ down and in [docs/WINDOWS.md](docs/WINDOWS.md). The fork includes the upstream B
 - A separate process (`python -m harness -p "task"`, or as an editor's agent over ACP) that talks to the server's public
   API: a tool loop with permission levels, a plan mode, hooks, file checkpoints, a hash-chained audit log, a command
   sandbox, a secrets broker, fenced untrusted content, context masking, memory, skills with approval by hash, MCP and
-  reference documents (fixed block or search). Real phone calls and payments without confirmation are gated and off by default.
+  reference documents (fixed block or search). A **vault** keeps cards, personal data and logins encrypted and the model never sees a value;
+  the agent can drive a browser to fill in forms and book, and can pay within limits you set in the **Wallet** view (automatic up to the
+  caps you choose, a question above them); the second factor of a login is your choice. Real phone calls are gated and off by default.
 - A proactive **planner**: plans as graphs with decisions, merges and tasks handed to you, a fast event filter (cloud only
   with your consent, names replaced) and re-planning by the local model, shown in a **Plans** view.
 - An **evaluation** (`python -m harness.eval`) that reports pass^k, cost and cache use, and the pages' shell: interface zoom
