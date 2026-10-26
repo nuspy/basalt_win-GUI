@@ -258,9 +258,13 @@ Tutti e quattro costruiscono l'agente nello stesso punto (`harness/stack.py`): c
 
 ### Le conversazioni della Chat
 
-- **Modalità, con un'etichetta**: *Solo un piano*, *Sola lettura*, *Chiedi prima* o *Automatico*. Un'etichetta accanto a *Nuova
-  conversazione* dice quale è attiva (*Maiusc + TAB per cambiare modalità: attuale …*); **Maiusc+Tab** nel campo del messaggio passa
-  alla successiva, con una conversazione aperta cambia solo quella, e *Automatico* chiede le due conferme della finestra di rischio.
+- **Una colonna di conversazioni** a sinistra della Chat: apri una precedente, eliminala (la conferma è una seconda pressione) oppure
+  mettile la stella, così è elencata a parte, sopra le altre; la freccia in cima la chiude in una striscia stretta. La riga in alto ha
+  a sinistra *Nuova conversazione*, *Rami* e l'etichetta della modalità, a destra il tipo di conversazione, *Ragionamento* e *Impostazioni*.
+- **Modalità, con un'etichetta**: *Solo un piano*, *Sola lettura*, *Chiedi prima* o *Automatico*. Un'etichetta su due righe nella riga in
+  alto dice quale è attiva (*Maiusc + TAB per cambiare modalità:* in grigio, sotto il modo in grassetto e del suo colore, come fa
+  Claude Code); **Maiusc+Tab** nel campo del messaggio passa alla successiva, con una conversazione aperta cambia solo quella, e
+  *Automatico* chiede le due conferme della finestra di rischio solo la prima volta, finché non chiudi l'app.
 - **Livello di ragionamento** per conversazione (l'elenco *Ragionamento*, oppure `/effort`).
 - **Comandi con la barra**: scrivendo `/` si apre un menu di 30: sulla pagina (`/clear`, `/mode`, `/plan`, `/copy`, `/export`,
   `/branch`, `/rewind`, `/stop`, `/diff`…), risposti dal processo della conversazione (`/status`, `/context`, `/compact`, `/tools`,
@@ -275,7 +279,7 @@ Tutti e quattro costruiscono l'agente nello stesso punto (`harness/stack.py`): c
 - **Un messaggio mentre lavora** viene indirizzato nel compito, messo in coda o trattato come urgente; **Ferma** vuol dire ferma.
 - **Rami, tornare indietro, confrontare**: un albero di conversazioni, *Torna qui* su ogni richiesta (le azioni che restano avvenute
   sono elencate prima) e due continuazioni della stessa richiesta affiancate.
-- **Una copia tutta sua**: in una cartella git una conversazione può lavorare in un suo worktree, e le modifiche che scegli le
+- **Una copia tutta sua** (non offerta dalla pagina Chat, che non ha una cartella di progetto da copiare): in una cartella git una conversazione può lavorare in un suo worktree, e le modifiche che scegli le
   applichi come modifiche in staging, mai come commit.
 - **I guasti si gestiscono, non si nascondono**: un server occupato o irraggiungibile si riprova; un processo che muore riparte dalla
   sua cronologia; uno strumento irreversibile non viene mai rieseguito da un riavvio; dopo di che la conversazione è *bloccata* e

@@ -235,9 +235,13 @@ All four build the agent in the same place (`harness/stack.py`), so what one can
 
 ### The Chat's conversations
 
-- **Mode, with a label**: *Plan only*, *Read only*, *Ask first* or *Automatic*. A label by *New conversation* says which is on
-  (*Shift + TAB to change mode: actual …*); **Shift+Tab** in the message box goes to the next, with a conversation open it changes that
-  one only, and *Automatic* asks the two confirmations of the risk dialog.
+- **A column of conversations** at the left of the Chat: open an earlier one, delete it (a second press confirms), or star it so that it
+  is listed apart, above the others; the arrow at its top closes it to a thin strip. The top row holds *New conversation*, *Branches* and
+  the mode label at the left, and the kind of conversation, *Thinking* and *Settings* at the right.
+- **Mode, with a label**: *Plan only*, *Read only*, *Ask first* or *Automatic*. A two-line label in the top row says which is on
+  (*Shift + TAB to change mode:* in grey, the mode under it in bold and in its own colour, as Claude Code does); **Shift+Tab** in the
+  message box goes to the next, with a conversation open it changes that one only, and *Automatic* asks the two confirmations of the
+  risk dialog the first time only, until the app is closed.
 - **Thinking level** per conversation (the *Thinking* list, or `/effort`).
 - **Slash commands**: typing `/` opens a menu of 30: on the page (`/clear`, `/mode`, `/plan`, `/copy`, `/export`, `/branch`, `/rewind`,
   `/stop`, `/diff`…), answered by the conversation's process (`/status`, `/context`, `/compact`, `/tools`, `/hooks`, `/mcp`,
@@ -252,7 +256,7 @@ All four build the agent in the same place (`harness/stack.py`), so what one can
 - **A message while it works** is steered into the task, queued, or treated as urgent; **Stop** means stop.
 - **Branches, going back, comparing**: a tree of conversations, *Back to here* on any request (actions that stay done are listed
   first), and two continuations of one request side by side.
-- **A copy of its own**: in a git folder a conversation can work in its own worktree, and you apply the changes you choose as staged
+- **A copy of its own** (not offered from the Chat page, which has no project folder to copy): in a git folder a conversation can work in its own worktree, and you apply the changes you choose as staged
   changes, never a commit.
 - **Failures are handled, not hidden**: a busy or unreachable server is retried; a process that dies is started again from its history;
   a tool that cannot be undone is never run again by a restart; after that the conversation is *blocked* and waits for you.
