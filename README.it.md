@@ -266,6 +266,12 @@ Tutti e quattro costruiscono l'agente nello stesso punto (`harness/stack.py`): c
   `/branch`, `/rewind`, `/stop`, `/diff`…), risposti dal processo della conversazione (`/status`, `/context`, `/compact`, `/tools`,
   `/hooks`, `/mcp`, `/memory`, `/permissions`), richieste scritte per il modello (`/init`, `/review`, `/security-review`,
   `/research`) e ogni skill trovata sul PC come `/nome testo`.
+- **Sa sempre che ora è.** Prima di ogni richiesta l'agente riceve da solo, dall'harness, data, ora e fuso orario locali della
+  persona, quindi non deve mai chiamare uno strumento per chiederli, e l'inizio del prompt non viene toccato (il server tiene la sua
+  cache). Ogni messaggio della Chat, anche quelli tecnici (una chiamata a uno strumento, una nota), mostra a sinistra il suo orario:
+  l'ora in grassetto, la data sotto, in caratteri piccoli.
+- **Le fonti si aprono fuori.** Dopo una notizia o un dato preso dal web, un piccolo pulsante *fonte ↗* apre quella pagina nel browser
+  predefinito del sistema (anche dopo un indirizzo scritto nel testo, e per i siti usati da una ricerca o dalla lettura di una pagina).
 - **Un messaggio mentre lavora** viene indirizzato nel compito, messo in coda o trattato come urgente; **Ferma** vuol dire ferma.
 - **Rami, tornare indietro, confrontare**: un albero di conversazioni, *Torna qui* su ogni richiesta (le azioni che restano avvenute
   sono elencate prima) e due continuazioni della stessa richiesta affiancate.

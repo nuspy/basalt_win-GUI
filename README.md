@@ -243,6 +243,12 @@ All four build the agent in the same place (`harness/stack.py`), so what one can
   `/stop`, `/diff`…), answered by the conversation's process (`/status`, `/context`, `/compact`, `/tools`, `/hooks`, `/mcp`,
   `/memory`, `/permissions`), requests worded for the model (`/init`, `/review`, `/security-review`, `/research`), and every skill found
   on the PC as `/name text`.
+- **It always knows the time.** Before each request the agent is given the person's local date, time and timezone by the harness
+  itself, so it never has to call a tool to ask, and the start of the prompt is not touched (the server keeps its cache). Each message
+  of the Chat, the technical ones too (a tool call, a note), shows its time at the left: the hour in bold, the date under it, in
+  small type.
+- **Sources open outside.** After a news item or a fact taken from the web, a small *source ↗* button opens that page in the system's
+  default browser (also after an address written in the text, and for the sites a search or a page-reading step used).
 - **A message while it works** is steered into the task, queued, or treated as urgent; **Stop** means stop.
 - **Branches, going back, comparing**: a tree of conversations, *Back to here* on any request (actions that stay done are listed
   first), and two continuations of one request side by side.
